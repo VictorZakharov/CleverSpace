@@ -19,6 +19,8 @@ export interface SurfaceBaseLandmark {
   kind: BaseKind;
   /** Approximate fortified footprint radius. */
   radius: number;
+  /** First authored turret, used as the tutorial's guided base-raid target. */
+  trainingBattery: Vector3 | null;
 }
 
 export interface HoverBaseLandmark {

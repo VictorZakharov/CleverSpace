@@ -16,7 +16,7 @@ import { Rng } from '../core/Rng';
 import { makeBody } from './AsteroidField';
 import { PlanetInfo } from './Sector';
 import { buildSurfaceBaseExpansion } from './PlanetSurfaceBaseExpansion';
-import { BaseKind, SurfaceStructureHost } from './PlanetSurfaceStructures';
+import { BaseKind, SurfaceBaseLandmark, SurfaceStructureHost } from './PlanetSurfaceStructures';
 import { getSurfaceBaseMaterials } from './SurfaceBaseMaterials';
 
 const UP = new Vector3(0, 1, 0);
@@ -37,7 +37,7 @@ export function buildSurfaceBase(
 /** Builds one complete Vigil installation without owning terrain state. */
 class SurfaceBaseBuilder {
   private baseId = -1;
-
+  private trainingBattery: Vector3 | null = null;
   constructor(private readonly host: SurfaceStructureHost) {}
 
   private get group() { return this.host.group; }
@@ -61,6 +61,7 @@ class SurfaceBaseBuilder {
     lookZ: number,
   ): void {
     this.host.addTurretPost(x, y, z, lookX, lookZ, this.baseId);
+    this.trainingBattery ??= new Vector3(x, y + 2, z);
   }
 
   build(
@@ -72,6 +73,7 @@ class SurfaceBaseBuilder {
     planet: PlanetInfo,
   ): void {
     this.baseId = baseId;
+    this.trainingBattery = null;
     const by = this.heightAt(bx, bz);
     // Low metalness: metallic surfaces go BLACK without an env map — the
     // whole base read as a dark blob against the lit terrain.
@@ -83,12 +85,14 @@ class SurfaceBaseBuilder {
       hazard: hazardMat,
       pad: padMat,
     } = getSurfaceBaseMaterials(this.group, planet);
-    this.baseLandmarks.push({
+    const landmark: SurfaceBaseLandmark = {
       baseId,
       center: new Vector3(bx, by, bz),
       kind,
       radius: kind === 'fortress' ? 174 : 160,
-    });
+      trainingBattery: null,
+    };
+    this.baseLandmarks.push(landmark);
 
     const solid = (
       mesh: Mesh,
@@ -562,6 +566,7 @@ class SurfaceBaseBuilder {
       this.addStash(rng, bx, gy + 14.5, bz); // on the keep roof, inside the guns
     }
 
+    landmark.trainingBattery = this.trainingBattery;
     // A low patrol wing circling every installation.
     const patrolRadius = rng.range(140, 200);
     this.patrols.push({

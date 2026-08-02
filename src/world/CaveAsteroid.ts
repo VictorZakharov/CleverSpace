@@ -51,6 +51,7 @@ const MAX_TURRET_PAD_LENGTH = 12;
 export class CaveAsteroid {
   readonly group = new Group();
   readonly center: Vector3;
+  readonly maxMountLength: number;
   /** Where Game should place defense turrets. */
   readonly turretSpawns: TurretSpawn[] = [];
   /** Test/visual-harness view of the authored pedestal geometry. */
@@ -196,6 +197,10 @@ export class CaveAsteroid {
         lookAt: mount.lookAt,
       });
     }
+    this.maxMountLength = this.turretPads.reduce(
+      (maximum, turretPad) => Math.max(maximum, turretPad.length),
+      0,
+    );
     batchStaticMeshes(shellGroup);
     batchStaticMeshes(padGroup);
 
