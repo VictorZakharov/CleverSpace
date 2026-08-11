@@ -178,6 +178,8 @@ test/
     preferences.mjs       real menu/hangar preference lifecycle + write-count probe
     hangar.mjs            hangar geometry, crafting and contact UI
     world.mjs             peace/trade/planet persistence/jump flow + turret clearance
+    planetary-bases.mjs   base diversity, crawler behavior and single-hit regression
+    planet-combat-stability.mjs  max-pool surface stress + heap/WebGL cleanup audit
     targeting.mjs         pursuit/contact policy, ordnance warnings/range and flight key chord
     capital.mjs           carrier battery, preview and annihilator probes
     capital-retaliation.mjs  non-missile wake, pursuit, mount-sync and retaliation probe

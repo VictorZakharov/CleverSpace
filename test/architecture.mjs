@@ -39,6 +39,7 @@ const limits = new Map([
   ['test/smoke/hangar.mjs', 400],
   ['test/smoke/preferences.mjs', 120],
   ['test/smoke/performance.mjs', 80],
+  ['test/smoke/planet-combat-stability.mjs', 210],
   ['test/smoke/planetary-bases.mjs', 190],
   ['test/smoke/world.mjs', 560],
   ['test/smoke/targeting.mjs', 460],

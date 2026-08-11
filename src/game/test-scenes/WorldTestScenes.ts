@@ -1,4 +1,5 @@
 import { Vector3 } from 'three';
+import { GroundRocketLauncher } from '../../entities/GroundRocketLauncher';
 import { spawnAsteroidChildren } from '../../world/AsteroidBreakup';
 import { buildShipMesh } from '../../entities/ShipMesh';
 import { Game } from '../Game';
@@ -160,7 +161,7 @@ export function stageWreck(game: Game): void {
 export function stagePlanet(game: Game): void {
   game.startMission();
   game.enterPlanet(0);
-  const cave = game.surface!.caveLandmarks[0];
+  const cave = game.surface!.caveLandmarks[1] ?? game.surface!.caveLandmarks[0];
   game.player.object.position.copy(cave.approach);
   game.player.faceToward(cave.route[1]);
   game.chaseCam.snapTo(game.player.object);
@@ -217,17 +218,32 @@ export function stageGroundLauncher(game: Game): void {
   game.hud.setVisible(false);
   game.player.object.visible = false;
   for (const enemy of game.enemies) enemy.object.visible = false;
-  const launcher = game.turrets.find((turret) => turret.kind === 'ground-launcher');
+  const launcher = game.turrets.find(
+    (turret): turret is GroundRocketLauncher => turret instanceof GroundRocketLauncher,
+  );
   if (!launcher) throw new Error('ground-launcher scene expects a surface crawler');
   for (const turret of game.turrets) turret.object.visible = turret === launcher;
   const center = launcher.position;
-  const aim = center.clone().add(new Vector3(-10, 20, 36));
-  for (let frame = 0; frame < 90; frame++) {
+  const aim = center.clone().add(new Vector3(-4, 17, 48));
+  game.player.position.copy(aim);
+  for (let frame = 0; frame < 150; frame++) {
     launcher.update(1 / 60, aim, true, () => false, true, false);
   }
+  const origin = new Vector3();
+  const direction = new Vector3();
+  const firstShot = launcher.totalShotsFired;
+  for (let frame = 0; frame < 90 && launcher.totalShotsFired < firstShot + 8; frame++) {
+    launcher.update(1 / 60, aim, true, () => {
+      // Stagger the frozen formation while keeping every rocket in frame.
+      game.projectiles.update(0.03, [], null, [], () => {});
+      launcher.rocketLaunch(origin, direction);
+      game.projectiles.spawnEnemyRocket(origin, direction, game.player, 'salvo');
+      return true;
+    }, true, true);
+  }
   const camera = game.chaseCam.camera;
-  camera.position.copy(center).add(new Vector3(-21, 7, 10));
-  camera.lookAt(center.x, center.y + 2.6, center.z);
+  camera.position.copy(center).add(new Vector3(-27, 8, 10));
+  camera.lookAt(center.x - 2, center.y + 6, center.z + 14);
   steps(game, 3);
 }
 

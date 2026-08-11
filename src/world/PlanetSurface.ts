@@ -177,6 +177,7 @@ export class PlanetSurface {
     // heightAt, so installations sit on level ground instead of floating over
     // (or sinking into) bumpy terrain.
     const baseCount = rng.int(2, 3);
+    const availableBaseKinds = [...BASE_KINDS];
     for (let b = 0; b < baseCount; b++) {
       let x = 0;
       let z = 0;
@@ -190,7 +191,9 @@ export class PlanetSurface {
         ) break;
       }
       const h = this.heightAt(x, z);
-      this.baseSites.push({ x, z, kind: rng.pick(BASE_KINDS) });
+      const kind = rng.pick(availableBaseKinds);
+      availableBaseKinds.splice(availableBaseKinds.indexOf(kind), 1);
+      this.baseSites.push({ x, z, kind });
       this.pads.push({ x, z, r: 220, flatR: 142, h });
     }
 

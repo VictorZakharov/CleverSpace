@@ -136,6 +136,11 @@ same planet.
   salvo rocket at 225 m/s. Each tracked vehicle follows the rendered terrain,
   pursues within its owning base's walls, requires line of sight to fire, and
   launches exactly eight rapidly rotating tube positions before a 5.4 s reload.
+  Every tube converges on the sampled aim point, so even one round can hit a
+  stationary ship instead of forming a hollow cone around it. Salvo rounds use
+  a tapered, vertex-shaded hull with a bright rear exhaust and no overlapping
+  point-sprite trail, keeping the rapid burst readable instead of producing
+  floating orange balls.
   Its cradle is limited to roughly 43 degrees elevation, preventing ground units
   from shooting unrealistically overhead.
 - Rotary interceptors and batteries fire amber 2.6-damage bolts at autogun cadence
@@ -350,12 +355,15 @@ exceed 450 m. Vertex color adds strata, mineral patches, altitude variation, and
 slope darkening.
 
 Every grounded installation sits on a 142 m level inner terrace, with earthworks
-blended naturally out to 220 m. Each of the 2–3 base templates keeps its original
-functional core and expands into a roughly 244 m fortified district
+blended naturally out to 220 m. The 2–3 bases on one planet are selected without
+replacement, so their compound/comm/depot/fortress templates never repeat. Each
+keeps its original functional core and expands into a roughly 244 m fortified district
 (`PlanetSurfaceBaseExpansion.ts`): 16–20 m perimeter walls, gate pylons and
 lintel, corner bastions, lit avenues, landing/service decks, hangars, tiered
 towers, facade windows, skybridges, cranes, cargo, tanks, refinery stacks, or a
-citadel according to its compound/comm/depot/fortress silhouette. Major visible
+citadel according to its silhouette. Seeded handedness, stepped bays, four
+facade families, offset service gates, overlooks, and varied bastion roofs break
+the perimeter symmetry without consuming generation RNG. Major visible
 masses register tight collision and line-of-sight bodies; cosmetic panels and
 lighting stay nonblocking. A shared planet-wide material palette lets this detail
 collapse into static batches.

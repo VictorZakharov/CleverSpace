@@ -37,6 +37,7 @@ export class GroundRocketLauncher extends Turret {
   private aimElevation = 0;
   private rawTargetElevation = 0;
   private readonly aimDirection = new Vector3(0, 0, -1);
+  private readonly aimPoint = new Vector3();
   private avoidanceSign = 1;
   private shotsFired = 0;
   private burstsCompleted = 0;
@@ -101,10 +102,10 @@ export class GroundRocketLauncher extends Turret {
       .addScaledVector(this.aimDirection, 4.05)
       .addScaledVector(launchRight, Math.cos(angle) * 1.55)
       .addScaledVector(launchUp, Math.sin(angle) * 0.86);
-    outDirection.copy(this.aimDirection)
-      .addScaledVector(launchRight, Math.cos(angle) * 0.052)
-      .addScaledVector(launchUp, Math.sin(angle) * 0.052)
-      .normalize();
+    // The rotating tube origins sell the spiral. Converging each unguided
+    // rocket on the sampled aim point avoids a hollow cone that can orbit a
+    // perfectly stationary ship without ever touching it.
+    outDirection.copy(this.aimPoint).sub(outPosition).normalize();
   }
 
   override update(
@@ -129,6 +130,7 @@ export class GroundRocketLauncher extends Turret {
       return;
     }
 
+    this.aimPoint.copy(playerPos);
     this.turnToward(playerPos, dt);
     this.chaseWithinBase(playerPos, dt);
     const targetDistance = targetDirection.copy(playerPos).sub(this.position).length();

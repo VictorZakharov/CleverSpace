@@ -1,6 +1,9 @@
 import {
   BoxGeometry,
+  BufferGeometry,
   Color,
+  CylinderGeometry,
+  Float32BufferAttribute,
   Group,
   Mesh,
   MeshBasicMaterial,
@@ -72,6 +75,7 @@ interface Projectile {
   distanceTravelled: number;
   trailColor: Color;
   trailTimer: number;
+  trailSize: number;
   /** Monotonic HUD countdown once this seeker enters the imminent window. */
   warningEta: number;
 }
@@ -86,6 +90,20 @@ const steer = new Vector3();
 const trailVel = new Vector3();
 const threatToPlayer = new Vector3();
 
+function vertexShaded<T extends BufferGeometry>(
+  geometry: T,
+  shadeAt: (z: number) => number,
+): T {
+  const position = geometry.attributes.position;
+  const colors = new Float32Array(position.count * 3);
+  for (let index = 0; index < position.count; index++) {
+    const shade = shadeAt(position.getZ(index));
+    colors.fill(shade, index * 3, index * 3 + 3);
+  }
+  geometry.setAttribute('color', new Float32BufferAttribute(colors, 3));
+  return geometry;
+}
+
 /**
  * Pooled projectiles (bolts + homing missiles) with swept segment-vs-sphere
  * collision so nothing tunnels through targets at high speed or low frame
@@ -96,7 +114,11 @@ export class ProjectileSystem {
   readonly group = new Group();
   private readonly pool: Projectile[] = [];
   private readonly bodyCandidates: AsteroidBody[] = [];
-  private readonly unitBox = new BoxGeometry(1, 1, 1);
+  private readonly unitBox = vertexShaded(new BoxGeometry(1, 1, 1), () => 1);
+  private readonly missileBody = vertexShaded(
+    new CylinderGeometry(0.45, 0.75, 1, 6, 3).rotateX(Math.PI / 2),
+    (z) => z < -0.34 ? 1 : z > 0.34 ? 0.3 : 0.04,
+  );
   private readonly threat: MissileThreat = {
     locked: false,
     imminent: false,
@@ -109,7 +131,11 @@ export class ProjectileSystem {
     capacity = 320,
   ) {
     for (let i = 0; i < capacity; i++) {
-      const material = new MeshBasicMaterial({ color: 0xffffff, toneMapped: false });
+      const material = new MeshBasicMaterial({
+        color: 0xffffff,
+        toneMapped: false,
+        vertexColors: true,
+      });
       const mesh = new Mesh(this.unitBox, material);
       mesh.visible = false;
       this.group.add(mesh);
@@ -131,6 +157,7 @@ export class ProjectileSystem {
         distanceTravelled: 0,
         trailColor: new Color(),
         trailTimer: 0,
+        trailSize: 1.6,
         warningEta: Infinity,
       });
     }
@@ -150,6 +177,7 @@ export class ProjectileSystem {
     p.distanceTravelled = 0;
     p.velocity.copy(s.direction).normalize().multiplyScalar(s.speed);
     p.material.color.copy(s.color).multiplyScalar(3.2); // HDR — bloom picks it up
+    p.mesh.geometry = this.unitBox;
     p.mesh.visible = true;
     p.mesh.position.copy(s.position);
     p.mesh.scale.set(s.boltWidth, s.boltWidth, s.boltLength);
@@ -188,6 +216,10 @@ export class ProjectileSystem {
       maxDistance: def.maxDistance,
       color: def.color,
       homing: mode === 'homing',
+      brightness: mode === 'salvo' ? 1.25 : 2.8,
+      width: mode === 'salvo' ? 0.24 : 0.42,
+      length: mode === 'salvo' ? 4 : 2.2,
+      trailSize: mode === 'salvo' ? 0 : 1.6,
     });
   }
 
@@ -206,6 +238,10 @@ export class ProjectileSystem {
       maxDistance: number;
       color: Color;
       homing: boolean;
+      brightness?: number;
+      width?: number;
+      length?: number;
+      trailSize?: number;
     },
   ): void {
     const p = this.acquire();
@@ -223,14 +259,16 @@ export class ProjectileSystem {
     p.maxDistance = def.maxDistance;
     p.distanceTravelled = 0;
     p.trailTimer = 0;
+    p.trailSize = def.trailSize ?? 1.6;
     p.warningEta = Infinity;
     p.velocity.copy(direction).normalize().multiplyScalar(def.speed);
-    p.material.color.copy(def.color).multiplyScalar(2.8);
+    p.material.color.copy(def.color).multiplyScalar(def.brightness ?? 2.8);
     p.trailColor.copy(def.color);
+    p.mesh.geometry = this.missileBody;
     p.mesh.visible = true;
     p.mesh.position.copy(position);
-    const width = faction === 'enemy' ? 0.42 : 0.3;
-    p.mesh.scale.set(width, width, faction === 'enemy' ? 2.2 : 1.6);
+    const width = def.width ?? (faction === 'enemy' ? 0.42 : 0.3);
+    p.mesh.scale.set(width, width, def.length ?? (faction === 'enemy' ? 2.2 : 1.6));
     p.mesh.lookAt(newPos.copy(position).add(direction));
   }
 
@@ -275,7 +313,7 @@ export class ProjectileSystem {
         }
       }
 
-      if (p.kind === 'missile') {
+      if (p.kind === 'missile' && p.trailSize > 0) {
         // Fixed-rate exhaust keeps missile cost stable across frame rates.
         p.trailTimer -= dt;
         if (p.trailTimer <= 0) {
@@ -285,7 +323,7 @@ export class ProjectileSystem {
             position: p.mesh.position,
             velocity: trailVel,
             color: p.trailColor,
-            size: 1.6,
+            size: p.trailSize,
             life: 0.45,
           });
         }

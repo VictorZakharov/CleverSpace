@@ -1,3 +1,5 @@
+import { planetCombatStabilityFailed, runPlanetCombatStability } from './planet-combat-stability.mjs';
+
 /** Exercise planetary scale, optional sky stations, and mobile spiral artillery. */
 export async function runPlanetaryBaseSmoke(page) {
   const result = await page.evaluate(() => {
@@ -13,7 +15,6 @@ export async function runPlanetaryBaseSmoke(page) {
     launcher.object.traverse((object) => {
       if (object.isMesh && (object.layers.mask & 1) !== 0) launcherRenderMeshes++;
     });
-
     const baseRadius = Math.min(...surface.baseLandmarks.map((base) => base.radius));
     const baseStructureBodies = surface.bodies.filter((body) =>
       surface.baseLandmarks.some((base) =>
@@ -33,7 +34,6 @@ export async function runPlanetaryBaseSmoke(page) {
       }
       hoverClearance = hover.center.y - peak;
     }
-
     const savedPlayerPosition = game.player.position.clone();
     const savedPlayerVelocity = game.player.velocity.clone();
     const savedLauncherPosition = launcher.position.clone();
@@ -135,6 +135,7 @@ export async function runPlanetaryBaseSmoke(page) {
     return {
       staged: true,
       baseCount: surface.baseLandmarks.length,
+      distinctBaseKinds: new Set(surface.baseLandmarks.map((base) => base.kind)).size,
       baseRadius,
       baseStructureBodies,
       launcherCount: launchers.length,
@@ -162,13 +163,15 @@ export async function runPlanetaryBaseSmoke(page) {
       groundFollowError,
     };
   });
+  result.combatStability = await runPlanetCombatStability(page);
   console.log('planetary bases and spiral launcher:', JSON.stringify(result));
   return result;
 }
 
 export function collectPlanetaryBaseFailures(result) {
   if (
-    !result.staged || result.baseCount < 2 || result.baseRadius < 115 ||
+    !result.staged || result.baseCount < 2 || result.distinctBaseKinds !== result.baseCount ||
+    result.baseRadius < 115 ||
     result.baseStructureBodies < 30 || result.launcherCount < result.baseCount ||
     result.launcherRenderMeshes !== 2 ||
     result.terrainRelief < 450 || result.hoverCount > 1 ||
@@ -176,9 +179,11 @@ export function collectPlanetaryBaseFailures(result) {
     !result.hoverSmallerThanGround || result.firstBurstSize !== 8 ||
     result.distinctMuzzles !== 8 || result.distinctDirections !== 8 ||
     result.shots < 16 || result.completedBursts < 2 || result.reloadGap < 5.3 ||
-    !result.unguided || result.verticalShots !== 0 || result.verticalAim > 0.755 ||
+    !result.unguided ||
+    result.verticalShots !== 0 || result.verticalAim > 0.755 ||
     result.rejectedElevation < 1.4 || result.moved < 20 || result.liveMovement < 5 ||
-    result.leashDistance > result.maxLeashDistance + 0.05 || result.groundFollowError > 0.01
+    result.leashDistance > result.maxLeashDistance + 0.05 || result.groundFollowError > 0.01 ||
+    planetCombatStabilityFailed(result.combatStability)
   ) return ['planetary bases and spiral launcher'];
   return [];
 }

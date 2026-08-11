@@ -16,7 +16,7 @@ covered by one of the two.
 npm run test:architecture     # controller + smoke-module line-size budgets
 npm run typecheck            # strict TS
 npm run test:performance     # production renderer report at 1080p and two 4K profiles
-npm run test:visual          # 44 scenes vs local baselines (builds first)
+npm run test:visual          # 46 scenes vs local baselines (builds first)
 npm run test:visual:update   # re-capture local baselines (--scene=<name> for one)
 npm run test:smoke           # full gameplay loop in live headless Chromium
 ```
@@ -92,7 +92,7 @@ actual regression check. Never commit generated PNGs.
 | cave / wreck / level / planet | POIs: cave asteroid, derelict+blackbox, capital+hauler; planet stages the outside approach looking through the broad natural arch |
 | base | HUD-free player-scale view across the complete fortified district: tall walls/gate/bastions, roads, tower, hangar, bridgework, machinery, lights, and terrain backdrop |
 | skybase | Optional airborne station at seed 9: docking arms, layered decks, command stack, lift pods, a player ship for scale, and mountain clearance below |
-| ground-launcher | HUD-free close inspection of the vertex-painted tracks, road wheels, armored chassis, elevated cradle, sensor, and all eight visible tubes |
+| ground-launcher | HUD-free close inspection of the vertex-painted crawler plus a frozen real eight-round salvo in profile, covering tapered hull/exhaust readability |
 | trade | merchant trade screen: Buy/Sell tabs, painterly offer art, shared SVG holding/cost marks, ✕ close button |
 | fleet | all three playable hulls, CLOSE low rear-quarter above the field plane, HUD off — the range+angle where floating-part "ship slop" shows |
 | cloak | predator cloak engaged: glass hull + iridescent rim shell, dimmed engines |
@@ -267,10 +267,16 @@ Asserted, in order:
    takes damage from its intended open firing arc; soft-lock picks a visible near
    turret at ~120 m.
    The dedicated planetary-base probe additionally requires 115+ m base radii,
+   one distinct template kind per generated base,
    substantial registered architecture, at least one two-render-mesh crawler per
    base, 450+ m terrain relief, safe optional-station clearance, real movement
    through live base collision, a hard navigation leash, an eight-position spiral
-   burst, 5.3+ s reload gap, unguided projectiles, and overhead-shot rejection.
+   burst, 5.3+ s reload gap, unguided projectiles, a real single-rocket hit on a
+   stationary player, and overhead-shot rejection. Its focused combat-stability
+   helper saturates 320 projectiles and 48 audio one-shots for repeated surface
+   combat cycles, then forces GC and requires stable WebGL scene, geometry, and
+   texture counts, bounded heap growth, no retained projectiles/debris, and no
+   context loss.
 8. Lift/revisit reuses the exact `PlanetSurface`: harvested bodies stay gone,
    moved pickups persist, and a zero-garrison planet remains cleared. Lift-off
    also restores the space sector bit-identically (a pre-landing scarred rock is

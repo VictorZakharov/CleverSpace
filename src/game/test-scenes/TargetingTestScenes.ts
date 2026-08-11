@@ -2,7 +2,6 @@ import { Vector3 } from 'three';
 import type { TargetInfo } from '../../combat/Targeting';
 import { Game } from '../Game';
 import { jumpToSector2, steps } from './TestSceneShared';
-
 /** Locked hostile, contact brackets, edge markers, radar, and live enemy fire. */
 export function stageTargeting(game: Game): void {
   game.startMission();
@@ -11,14 +10,25 @@ export function stageTargeting(game: Game): void {
   const at = (x: number, y: number, z: number): Vector3 =>
     new Vector3(x, y, z).add(origin);
   game.spawnEnemy({ kind: 'raider', position: at(0, 0, -180), aggression: 0 });
+  const focus = game.enemies.at(-1)!;
   game.spawnEnemy({ kind: 'brute', position: at(-250, 40, 200), aggression: 0 });
   game.spawnEnemy({ kind: 'raider', position: at(0, 260, -60), aggression: 0 });
   game.spawnEnemy({ kind: 'raider', position: at(85, 22, -190), aggression: 1 });
   game.spawnEnemy({ kind: 'brute', position: at(-130, 60, -700), aggression: 0 });
   for (const enemy of game.enemies) if (enemy.hunter) enemy.faceToward(game.player.position);
   steps(game, 80);
+  game.state = 'test';
+  game.hud.clearComms();
+  const forward = new Vector3();
+  game.chaseCam.camera.getWorldDirection(forward);
+  focus.position.copy(game.chaseCam.camera.position).addScaledVector(forward, 180);
+  focus.faceToward(game.player.position);
+  const weapon = game.weapons.weapon;
+  game.targeting.update(game.player, [focus], [], weapon.projectileSpeed,
+    weapon.projectileSpeed * weapon.life, forward, false, game.chaseCam.camera.position);
+  game.renderHudOnce();
+  steps(game, 1);
 }
-
 /** Distant reticle ranking: 1,847 m centred beats 1,444 m off-axis. */
 export function stageDistantTargeting(game: Game): void {
   game.startMission();
@@ -54,7 +64,6 @@ export function stageDistantTargeting(game: Game): void {
   game.state = 'test';
   game.renderHudOnce();
 }
-
 /** Peaceful crosshair inspection of a dormant independent turret. */
 export function stageTurretTargeting(game: Game): void {
   game.startMission();
@@ -85,7 +94,6 @@ export function stageTurretTargeting(game: Game): void {
   game.state = 'test';
   game.renderHudOnce();
 }
-
 /** Nose-on carrier readout remains recognizable instead of collapsing to a dot. */
 export function stageCapitalTargeting(game: Game): void {
   game.startMission();
@@ -105,7 +113,6 @@ export function stageCapitalTargeting(game: Game): void {
   game.state = 'test';
   game.renderHudOnce();
 }
-
 /** Civilian fallback lock: friendly merchant wireframe, never aim assist. */
 export function stageFriendlyTargeting(game: Game): void {
   game.startMission();
@@ -133,7 +140,6 @@ export function stageFriendlyTargeting(game: Game): void {
   game.state = 'test';
   steps(game, 2);
 }
-
 /** Mineable formation under the crosshair: informational wireframe, never aim assist. */
 export function stageResourceTargeting(game: Game): void {
   game.startMission();

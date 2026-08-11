@@ -14,6 +14,12 @@ import { BaseKind, SurfaceStructureHost } from './PlanetSurfaceStructures';
 import { getSurfaceBaseMaterials } from './SurfaceBaseMaterials';
 
 const BASE_HALF_EXTENT = 112;
+const BASE_WALL_VARIANT: Record<BaseKind, number> = {
+  compound: 0,
+  comm: 1,
+  depot: 2,
+  fortress: 3,
+};
 
 /**
  * Grow the compact inner installation into a landmark-scale fortified district.
@@ -38,8 +44,11 @@ class BaseExpansionBuilder {
   private readonly dark: MeshStandardMaterial;
   private readonly window: MeshStandardMaterial;
   private readonly warning: MeshStandardMaterial;
+  private readonly hazard: MeshStandardMaterial;
   private readonly deck: MeshStandardMaterial;
   private readonly halfExtent: number;
+  private readonly wallVariant: number;
+  private readonly layoutSign: number;
 
   constructor(
     private readonly host: SurfaceStructureHost,
@@ -51,12 +60,18 @@ class BaseExpansionBuilder {
   ) {
     this.ground = host.heightAt(bx, bz);
     this.halfExtent = kind === 'fortress' ? 122 : BASE_HALF_EXTENT;
+    // Template and seeded site coordinates provide a stable wall profile and
+    // handedness without consuming generation RNG and shifting later content.
+    const siteHash = Math.abs(Math.floor(bx * 31 + bz * 47));
+    this.wallVariant = BASE_WALL_VARIANT[kind];
+    this.layoutSign = Math.floor(siteHash / 4) % 2 === 0 ? 1 : -1;
     const palette = getSurfaceBaseMaterials(host.group, planet);
     this.wall = palette.wall;
     this.armor = palette.armor;
     this.dark = palette.dark;
     this.window = palette.window;
     this.warning = palette.accent;
+    this.hazard = palette.hazard;
     this.deck = palette.deck;
   }
 
@@ -71,7 +86,7 @@ class BaseExpansionBuilder {
   }
 
   private addMesh(mesh: Mesh, x: number, y: number, z: number, collides = false): Mesh {
-    mesh.position.set(this.bx + x, this.ground + y, this.bz + z);
+    mesh.position.set(this.bx + x * this.layoutSign, this.ground + y, this.bz + z);
     this.host.group.add(mesh);
     if (collides) this.host.registerObstacle(mesh, 0.22);
     return mesh;
@@ -126,14 +141,30 @@ class BaseExpansionBuilder {
     // leaves a ship-wide gate instead of presenting an unbroken collision slab.
     for (let index = 0; index < 3; index++) {
       const along = -half + 9 + sideSegment * (index + 0.5);
-      this.wallBay(along, -half, sideSegment - 3, wallHeight, wallThickness, false);
-      this.wallBay(-half, along, sideSegment - 3, wallHeight, wallThickness, true);
-      this.wallBay(half, along, sideSegment - 3, wallHeight, wallThickness, true);
+      const steppedHeight = wallHeight + ((index + this.wallVariant) % 2) * 2.5;
+      this.wallBay(along, -half, sideSegment - 3, steppedHeight, wallThickness, false, index);
+      const serviceSide = this.wallVariant % 2 === 0 ? -1 : 1;
+      const serviceIndex = this.wallVariant % 3;
+      for (const side of [-1, 1]) {
+        if (index === serviceIndex && side === serviceSide) {
+          this.sideGate(side * half, along, sideSegment - 3, wallHeight, wallThickness);
+        } else {
+          this.wallBay(
+            side * half,
+            along,
+            sideSegment - 3,
+            steppedHeight,
+            wallThickness,
+            true,
+            index + (side > 0 ? 3 : 6),
+          );
+        }
+      }
     }
     const frontLength = half - gateHalf - 4;
     for (const side of [-1, 1]) {
       const x = side * (gateHalf + frontLength * 0.5);
-      this.wallBay(x, half, frontLength, wallHeight, wallThickness, false);
+      this.wallBay(x, half, frontLength, wallHeight, wallThickness, false, 9 + (side > 0 ? 1 : 0));
     }
 
     // Gate pylons and high lintel leave roughly 15 m of vertical clearance.
@@ -145,7 +176,7 @@ class BaseExpansionBuilder {
     this.box(0, wallHeight + 7.8, half + 0.2, gateHalf * 1.45, 0.6, 6.1, this.window, false);
 
     for (const sx of [-1, 1]) {
-      for (const sz of [-1, 1]) this.cornerBastion(sx * half, sz * half, wallHeight);
+      for (const sz of [-1, 1]) this.cornerBastion(sx * half, sz * half, wallHeight, sx, sz);
     }
   }
 
@@ -156,6 +187,7 @@ class BaseExpansionBuilder {
     height: number,
     thickness: number,
     alongZ: boolean,
+    detailIndex: number,
   ): void {
     const wall = this.box(
       x,
@@ -199,20 +231,140 @@ class BaseExpansionBuilder {
         false,
       );
     }
+    this.wallBayDetails(x, z, length, height, thickness, alongZ, detailIndex);
   }
 
-  private cornerBastion(x: number, z: number, wallHeight: number): void {
-    const height = wallHeight + 12;
-    this.cylinder(x, 0, z, 8.5, height, this.armor, 8);
-    this.addMesh(
-      new Mesh(new ConeGeometry(9.2, 3.8, 8), this.dark),
-      x,
-      height + 1.9,
-      z,
+  private wallBayDetails(
+    x: number,
+    z: number,
+    length: number,
+    height: number,
+    thickness: number,
+    alongZ: boolean,
+    detailIndex: number,
+  ): void {
+    const panelCount = Math.max(3, Math.floor(length / 15));
+    const panelSpan = Math.min(9, length / panelCount - 2.2);
+    const facade = (
+      offset: number,
+      y: number,
+      span: number,
+      panelHeight: number,
+      depth: number,
+      material: MeshStandardMaterial,
+      face: number,
+    ): Mesh => this.box(
+      x + (alongZ ? face * (thickness * 0.52 + 0.12) : offset),
+      y,
+      z + (alongZ ? offset : face * (thickness * 0.52 + 0.12)),
+      alongZ ? depth : span,
+      panelHeight,
+      alongZ ? span : depth,
+      material,
       false,
     );
-    for (let side = 0; side < 8; side++) {
-      const angle = (side / 8) * Math.PI * 2;
+    for (let index = 0; index < panelCount; index++) {
+      const offset = -length * 0.5 + (index + 0.5) * (length / panelCount);
+      for (const face of [-1, 1]) {
+        if (this.wallVariant === 0) {
+          facade(offset, 3.2, panelSpan, height * 0.38, 0.28, this.armor, face);
+          facade(offset, height * 0.63, panelSpan * 0.68, 1.15, 0.34, this.window, face);
+        } else if (this.wallVariant === 1) {
+          facade(offset, 2.4, panelSpan * 0.82, height * 0.58, 0.34, this.dark, face);
+          facade(offset, height * 0.48, 0.6, height * 0.32, 0.42, this.warning, face);
+        } else if (this.wallVariant === 2) {
+          facade(offset, 1.8, 1.25, height * 0.72, 0.4, this.armor, face);
+          if ((index + detailIndex) % 2 === 0) {
+            facade(offset, height * 0.7, panelSpan * 0.58, 0.7, 0.44, this.hazard, face);
+          }
+        } else {
+          facade(offset, 2.2, panelSpan * 0.9, height * 0.3, 0.3, this.armor, face);
+          facade(offset, height * 0.56, panelSpan * 0.72, 0.55, 0.38, this.window, face);
+        }
+      }
+      if (this.wallVariant === 3 && (index + detailIndex) % 2 === 0) {
+        this.box(
+          x + (alongZ ? 0 : offset),
+          height + 1.1,
+          z + (alongZ ? offset : 0),
+          alongZ ? thickness + 2.2 : panelSpan * 0.72,
+          2.4,
+          alongZ ? panelSpan * 0.72 : thickness + 2.2,
+          this.armor,
+          false,
+        );
+      }
+    }
+    if ((detailIndex + this.wallVariant) % 3 === 0) {
+      const overlookSpan = Math.min(18, length * 0.38);
+      for (const face of [-1, 1]) {
+        facade(0, height * 0.58, overlookSpan, 3.2, 1.15, this.dark, face);
+        facade(
+          0,
+          height * 0.68,
+          overlookSpan * 0.72,
+          0.65,
+          1.22,
+          this.wallVariant === 2 ? this.hazard : this.window,
+          face,
+        );
+      }
+    }
+  }
+
+  private sideGate(
+    x: number,
+    z: number,
+    length: number,
+    wallHeight: number,
+    wallThickness: number,
+  ): void {
+    const gateHalf = 14;
+    const remainder = (length - gateHalf * 2) * 0.5;
+    for (const side of [-1, 1]) {
+      this.wallBay(
+        x,
+        z + side * (gateHalf + remainder * 0.5),
+        remainder - 2,
+        wallHeight,
+        wallThickness,
+        true,
+        12 + (side > 0 ? 1 : 0),
+      );
+      this.box(x, 0, z + side * (gateHalf + 2.5), 8, wallHeight + 7, 5, this.armor);
+    }
+    this.box(x, wallHeight + 4.5, z, 6.5, 3.8, gateHalf * 2, this.dark);
+    this.box(x, wallHeight + 6.7, z, 6.8, 0.55, gateHalf * 1.45, this.hazard, false);
+  }
+
+  private cornerBastion(
+    x: number,
+    z: number,
+    wallHeight: number,
+    sx: number,
+    sz: number,
+  ): void {
+    const cornerIndex = (sx > 0 ? 1 : 0) + (sz > 0 ? 2 : 0);
+    const height = wallHeight + 8 + ((cornerIndex + this.wallVariant) % 3) * 3;
+    const sides = this.wallVariant === 1 ? 6 : this.wallVariant === 3 ? 12 : 8;
+    this.cylinder(x, 0, z, this.wallVariant === 2 ? 9.5 : 8.5, height, this.armor, sides);
+    if (this.wallVariant % 2 === 0) {
+      this.addMesh(
+        new Mesh(new ConeGeometry(9.2, 3.8, sides), this.dark),
+        x,
+        height + 1.9,
+        z,
+        false,
+      );
+    } else {
+      this.cylinder(x, height, z, 9.4, 2.2, this.dark, sides, false);
+    }
+    if (this.wallVariant >= 2 && cornerIndex % 2 === 0) {
+      this.cylinder(x, height + 2, z, 0.28, 7, this.dark, 6, false);
+      this.addMesh(new Mesh(new SphereGeometry(0.42, 7, 5), this.hazard), x, height + 9.4, z, false);
+    }
+    for (let side = 0; side < sides; side++) {
+      const angle = (side / sides) * Math.PI * 2;
       this.box(
         x + Math.cos(angle) * 8.6,
         height * 0.58,
@@ -397,11 +549,13 @@ class BaseExpansionBuilder {
     bz: number,
     radius: number,
   ): void {
-    const direction = new Vector3(bx - ax, by - ay, bz - az);
+    const worldAx = ax * this.layoutSign;
+    const worldBx = bx * this.layoutSign;
+    const direction = new Vector3(worldBx - worldAx, by - ay, bz - az);
     const length = direction.length();
     const pipe = new Mesh(new CylinderGeometry(radius, radius, length, 9), this.dark);
     pipe.position.set(
-      this.bx + (ax + bx) * 0.5,
+      this.bx + (worldAx + worldBx) * 0.5,
       this.ground + (ay + by) * 0.5,
       this.bz + (az + bz) * 0.5,
     );
@@ -427,8 +581,9 @@ class BaseExpansionBuilder {
   private addGroundLaunchers(): void {
     const candidates = [[-42, 80]];
     for (const [x, z] of candidates) {
-      const ground = this.host.heightAt(this.bx + x, this.bz + z);
-      const position = new Vector3(this.bx + x, ground + 0.2, this.bz + z);
+      const worldX = this.bx + x * this.layoutSign;
+      const ground = this.host.heightAt(worldX, this.bz + z);
+      const position = new Vector3(worldX, ground + 0.2, this.bz + z);
       this.host.groundLauncherSpawns.push({
         position,
         baseCenter: new Vector3(this.bx, this.ground, this.bz),
