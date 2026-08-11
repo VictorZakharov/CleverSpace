@@ -39,7 +39,7 @@ try {
   }
   console.table(results);
   const drawCallRegression = results.some((result) =>
-    result.calls > (result.world === 'planet' ? 90 : 330));
+    result.calls > (result.world === 'planet' ? 110 : 330));
   const surfaceOptimizationRegression = results.some((result) =>
     result.world === 'planet' && (
       result.surfaceLights > 4 ||

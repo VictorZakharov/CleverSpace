@@ -172,19 +172,63 @@ export function stagePlanet(game: Game): void {
 export function stageBase(game: Game): void {
   game.startMission();
   game.enterPlanet(0);
+  game.state = 'test';
+  game.hud.setVisible(false);
+  for (const enemy of game.enemies) enemy.object.visible = false;
   const landmarks = game.surface!.baseLandmarks;
   const base = landmarks.find((landmark) => landmark.kind === 'compound') ?? landmarks[0];
   const center = base.center;
-  game.player.object.position.set(center.x + 110, center.y + 26, center.z + 95);
+  game.player.object.position.set(center.x + 108, center.y + 22, center.z + 122);
   game.player.faceToward(center);
-  game.chaseCam.snapTo(game.player.object);
-  steps(game, 100);
-  game.state = 'test';
-  game.hud.clearComms();
   const camera = game.chaseCam.camera;
-  camera.position.set(center.x + 62, center.y + 34, center.z + 104);
-  camera.lookAt(center.x, center.y + 8, center.z);
-  steps(game, 2);
+  camera.position.set(center.x + 150, center.y + 68, center.z + 166);
+  camera.lookAt(center.x, center.y + 18, center.z);
+  steps(game, 4);
+}
+
+/** Optional airborne base beauty shot with the terrain relief visible below. */
+export function stageSkybase(game: Game): void {
+  game.startMission();
+  let station: { center: Vector3 } | null = null;
+  for (let index = 0; index < game.sector.planets.length; index++) {
+    game.enterPlanet(index);
+    station = game.surface!.hoverBaseLandmarks[0] ?? null;
+    if (station) break;
+    game.exitPlanet();
+  }
+  if (!station) throw new Error('skybase scene expects the seeded planet to roll a station');
+  game.state = 'test';
+  game.hud.setVisible(false);
+  const center = station.center;
+  game.player.object.position.copy(center).add(new Vector3(82, 3, 102));
+  game.player.faceToward(center);
+  game.player.throttle = 0.55;
+  const camera = game.chaseCam.camera;
+  camera.position.copy(center).add(new Vector3(142, 55, 166));
+  camera.lookAt(center.x, center.y + 2, center.z);
+  steps(game, 4);
+}
+
+/** Close player-height inspection of the tracked eight-tube artillery model. */
+export function stageGroundLauncher(game: Game): void {
+  game.startMission();
+  game.enterPlanet(0);
+  game.state = 'test';
+  game.hud.setVisible(false);
+  game.player.object.visible = false;
+  for (const enemy of game.enemies) enemy.object.visible = false;
+  const launcher = game.turrets.find((turret) => turret.kind === 'ground-launcher');
+  if (!launcher) throw new Error('ground-launcher scene expects a surface crawler');
+  for (const turret of game.turrets) turret.object.visible = turret === launcher;
+  const center = launcher.position;
+  const aim = center.clone().add(new Vector3(-10, 20, 36));
+  for (let frame = 0; frame < 90; frame++) {
+    launcher.update(1 / 60, aim, true, () => false, true, false);
+  }
+  const camera = game.chaseCam.camera;
+  camera.position.copy(center).add(new Vector3(-21, 7, 10));
+  camera.lookAt(center.x, center.y + 2.6, center.z);
+  steps(game, 3);
 }
 
 /** All playable hulls from the rear-quarter angle used by mesh audits. */

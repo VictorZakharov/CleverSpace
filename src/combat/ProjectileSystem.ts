@@ -9,7 +9,7 @@ import {
 import { Ship } from '../entities/Ship';
 import { ParticleSystem } from '../fx/ParticleSystem';
 import { AsteroidBody } from '../world/AsteroidField';
-import { ENEMY_ROCKETS, EnemyRocketMode, MISSILE } from './WeaponDefs';
+import { ENEMY_ROCKETS, EnemyOrdnanceMode, MISSILE } from './WeaponDefs';
 import { segmentExitsAsteroidBody, segmentHitsAsteroid } from './ProjectileCollision';
 
 export type Faction = 'player' | 'enemy';
@@ -174,7 +174,7 @@ export class ProjectileSystem {
     position: Vector3,
     direction: Vector3,
     target: Ship,
-    mode: EnemyRocketMode,
+    mode: EnemyOrdnanceMode,
     damageScale = 1,
   ): void {
     const def = ENEMY_ROCKETS[mode];

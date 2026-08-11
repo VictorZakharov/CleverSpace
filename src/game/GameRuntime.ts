@@ -426,6 +426,7 @@ export abstract class GameRuntime extends GameInteractions {
         player.position,
         player.alive,
         (source) => this.combat.turretFire(source),
+        playerVisible,
         seesPlayer,
       );
     }

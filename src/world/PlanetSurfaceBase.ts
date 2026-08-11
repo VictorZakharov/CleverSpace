@@ -1,24 +1,23 @@
 import {
   BoxGeometry,
   CanvasTexture,
-  Color,
   ConeGeometry,
   CylinderGeometry,
   DoubleSide,
   Group,
   Mesh,
   MeshBasicMaterial,
-  MeshStandardMaterial,
   Object3D,
   PlaneGeometry,
   SphereGeometry,
   Vector3,
 } from 'three';
 import { Rng } from '../core/Rng';
-import { getSurfaceTexture } from '../rendering/SurfaceTextures';
 import { makeBody } from './AsteroidField';
 import { PlanetInfo } from './Sector';
+import { buildSurfaceBaseExpansion } from './PlanetSurfaceBaseExpansion';
 import { BaseKind, SurfaceStructureHost } from './PlanetSurfaceStructures';
+import { getSurfaceBaseMaterials } from './SurfaceBaseMaterials';
 
 const UP = new Vector3(0, 1, 0);
 
@@ -31,6 +30,7 @@ export function buildSurfaceBase(
   planet: PlanetInfo,
 ): void {
   new SurfaceBaseBuilder(host).build(rng, x, z, kind, planet);
+  buildSurfaceBaseExpansion(host, rng, x, z, kind, planet);
 }
 
 /** Builds one complete Vigil installation without owning terrain state. */
@@ -62,26 +62,15 @@ class SurfaceBaseBuilder {
     const by = this.heightAt(bx, bz);
     // Low metalness: metallic surfaces go BLACK without an env map — the
     // whole base read as a dark blob against the lit terrain.
-    const baseMetal = getSurfaceTexture('metal', 2, 2);
-    const wallMat = new MeshStandardMaterial({
-      color: new Color(0x59626c).lerp(planet.surfaceB, 0.25),
-      metalness: 0.3, roughness: 0.55, flatShading: true,
-      map: baseMetal, bumpMap: baseMetal, bumpScale: 0.45,
-    });
-    const darkMat = new MeshStandardMaterial({
-      color: 0x31373e, metalness: 0.35, roughness: 0.5, flatShading: true,
-      map: baseMetal, bumpMap: baseMetal, bumpScale: 0.45,
-    });
-    const accentMat = new MeshStandardMaterial({
-      color: 0x140505, emissive: new Color(0xff3b30), emissiveIntensity: 1.6,
-    });
-    const windowMat = new MeshStandardMaterial({
-      color: 0x05090e, emissive: new Color(0x9fd8ff), emissiveIntensity: 1.7,
-    });
-    const hazardMat = new MeshStandardMaterial({
-      color: 0x1a1206, emissive: new Color(0xffb347), emissiveIntensity: 1.3,
-    });
-    this.baseLandmarks.push({ center: new Vector3(bx, by, bz), kind });
+    const {
+      wall: wallMat,
+      dark: darkMat,
+      accent: accentMat,
+      window: windowMat,
+      hazard: hazardMat,
+      pad: padMat,
+    } = getSurfaceBaseMaterials(this.group, planet);
+    this.baseLandmarks.push({ center: new Vector3(bx, by, bz), kind, radius: 122 });
 
     const solid = (
       mesh: Mesh,
@@ -104,9 +93,6 @@ class SurfaceBaseBuilder {
     };
 
     // -- shared detail vocabulary --------------------------------------------
-    const padMat = new MeshStandardMaterial({
-      color: 0x4a5158, metalness: 0.12, roughness: 0.88, flatShading: true,
-    });
     const apron = (r: number): void => {
       const hubRadius = r * 0.58;
       const hub = new Mesh(

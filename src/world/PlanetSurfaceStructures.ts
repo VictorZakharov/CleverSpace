@@ -10,6 +10,26 @@ export interface SurfacePatrol {
   size: number;
 }
 
+export interface SurfaceBaseLandmark {
+  center: Vector3;
+  kind: BaseKind;
+  /** Approximate fortified footprint radius. */
+  radius: number;
+}
+
+export interface HoverBaseLandmark {
+  center: Vector3;
+  /** Approximate fly-around station radius. */
+  radius: number;
+}
+
+export interface GroundLauncherSpawn {
+  position: Vector3;
+  baseCenter: Vector3;
+  leashRadius: number;
+  lookAt: Vector3;
+}
+
 export interface CaveWaypoint {
   x: number;
   z: number;
@@ -40,7 +60,9 @@ export interface SurfaceStructureHost {
   turretSpawns: TurretSpawn[];
   patrols: SurfacePatrol[];
   caveLandmarks: CaveLandmark[];
-  baseLandmarks: { center: Vector3; kind: BaseKind }[];
+  baseLandmarks: SurfaceBaseLandmark[];
+  hoverBaseLandmarks: HoverBaseLandmark[];
+  groundLauncherSpawns: GroundLauncherSpawn[];
   heightAt(x: number, z: number): number;
   registerObstacle(object: Object3D, padding?: number): void;
   addCrystalFormation(rng: Rng, x: number, y: number, z: number): void;

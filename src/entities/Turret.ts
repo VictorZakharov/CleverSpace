@@ -6,6 +6,7 @@ import {
 } from '../combat/WeaponDefs';
 import { Rng } from '../core/Rng';
 import { Ship } from './Ship';
+import type { ShipKind } from './ShipMesh';
 
 const toPlayer = new Vector3();
 const fwd = new Vector3();
@@ -60,12 +61,17 @@ export class Turret extends Ship {
   private homingRetaliation = false;
   private readonly capitalRotation = new Quaternion();
 
-  constructor(rng: Rng, weapon: TurretWeapon = 'bolt', mountNormal: Vector3 | null = null) {
+  constructor(
+    rng: Rng,
+    weapon: TurretWeapon = 'bolt',
+    mountNormal: Vector3 | null = null,
+    meshKind?: ShipKind,
+  ) {
     const stats = TURRET_WEAPON_STATS[weapon];
     super(
-      weapon === 'bolt'
+      meshKind ?? (weapon === 'bolt'
         ? 'turret'
-        : weapon === 'autogun' ? 'autogun-turret' : 'rocket-turret',
+        : weapon === 'autogun' ? 'autogun-turret' : 'rocket-turret'),
       stats.hull,
       stats.shield,
     );
@@ -131,8 +137,9 @@ export class Turret extends Ship {
     dt: number,
     playerPos: Vector3,
     playerAlive: boolean,
-    fire: (t: Turret) => void,
+    fire: (t: Turret) => boolean | void,
     playerVisible = true,
+    hasLineOfSight = playerVisible,
   ): void {
     if (!this.alive || !playerAlive) return;
     if (this.stunTimer > 0) {
@@ -140,7 +147,7 @@ export class Turret extends Ship {
       this.updateCommon(dt);
       return;
     }
-    if (!playerVisible || !this.canTraverse(playerPos)) {
+    if (!playerVisible || !hasLineOfSight || !this.canTraverse(playerPos)) {
       this.updateCommon(dt);
       return;
     }

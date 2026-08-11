@@ -56,8 +56,9 @@ ever-meaner sectors (or dive onto planets) → death banks score÷10 as **credit
   body index supplies narrow candidate sets to player/enemy collision, line of sight,
   and projectile sweeps; loot inspection scans only interactive bodies. Cave lighting
   is represented by the two anchors most relevant to the camera, keeping the standard
-  material light loop fixed regardless of cave count. The dense-base benchmark is
-  capped at 90 draw calls and four total surface lights.
+  material light loop fixed regardless of cave count. Shared base palettes, batched
+  geology audit sources, and two-part mobile-launcher rendering keep the expanded
+  dense-base benchmark capped at 110 draw calls and four total surface lights.
 
 ## Environments
 
@@ -66,7 +67,7 @@ ever-meaner sectors (or dive onto planets) → death banks score÷10 as **credit
 | Built by | `Sector` (seeded from the `GameFoundation` RNG stream) | `PlanetSurface` |
 | Bodies list | `sector.asteroids.bodies` | `surface.bodies` |
 | Routed via | `Game.world` accessor (bodies/destroyRock/depleteOre/spawnChild) | same |
-| Hostiles | patrols, cave turrets, capital + batteries, hunters | base turrets + patrols (scaled by sector threat) |
+| Hostiles | patrols, cave turrets, capital + batteries, hunters | base turrets + leashed ground launchers + patrols (scaled by sector threat) |
 | Neutral traffic | haulers ×3, merchant (guaranteed s1, 70% after) | none |
 | Persistence | **exact across planetfall** (`spaceStash` detach/restore) | **exact across revisits in the current sector/sortie** (`planetStates`: surface + surviving garrison + pickups) |
 | Exit | hold-J jump (sector++) or planet dive (aim at planet) | hold-J aiming skyward (forward.y > 0.5) |
@@ -119,7 +120,7 @@ same planet.
   instead of appearing inside the rock. Visible ore spikes add matching swept sphere
   volumes to the same owning body, so firing at a protruding crystal damages the vein
   rather than requiring a shot through its hidden base.
-- Enemy bombers and rocket batteries use two deterministic payload families:
+- Enemy bombers and rocket batteries use two guided/fast payload families:
   **Seeker** (56 dmg, 92→205 u/s, 1.55 rad/s turn, 8 s life) or **Lance Rocket**
   (24 dmg, unguided 285 u/s, 4.6 s life). Only a live seeker target raises the
   amber missile-lock warning; the count is active in-flight homing rockets, not
@@ -131,6 +132,12 @@ same planet.
   launch one missile every 5.6 s while pursuing anywhere inside 1,200 m; their two
   visible hardpoints alternate. Once imminent, each missile's
   displayed ETA only decreases; an outbound/missed missile drops the timer.
+- Planetary spiral crawlers add a third enemy payload: a 12-damage unguided
+  salvo rocket at 225 m/s. Each tracked vehicle follows the rendered terrain,
+  pursues within its owning base's walls, requires line of sight to fire, and
+  launches exactly eight rapidly rotating tube positions before a 5.4 s reload.
+  Its cradle is limited to roughly 43 degrees elevation, preventing ground units
+  from shooting unrealistically overhead.
 - Rotary interceptors and batteries fire amber 2.6-damage bolts at autogun cadence
   (fighter 0.055 s, battery 0.11 s), 390 m/s, with audio chatter globally rate-limited.
 - Alert hunter wings are capped at 12 live reinforcements. A dispatch fills only
@@ -334,40 +341,44 @@ Enemy roster: raider (34 hull / 16 shield / 100 pts),
 
 ## Planet surface content (`PlanetSurface*.ts`)
 
-Analytic terrain = sines + 2–4 gaussian mountains + 3–5 rimmed craters + fine
-high-frequency detail sampled into a smooth-shaded SEG 180 grid. Runtime
-`heightAt` interpolates the exact rendered triangles rather than independently
-re-evaluating the analytic function, eliminating invisible ground at steep
-carves. Base sites are
-picked BEFORE terrain build and register **flattened foundation pads** (r 95,
-smoothstep blend) in `analyticHeightAt`, so installations sit level; boulders/
-crystals are displaced off pads (`onPad`). Vertex color: height gradient +
-strata bands + mineral patches + slope darkening. Content: 90 destructible
-boulders, 6–10 bounded multi-lobe rock formations, 4–6 lootable crystal
-formations, and 2–3
-**continuous cave routes** (`PlanetSurfaceCave.ts`): a Catmull-Rom path drives
-a broad, rough, open-bottomed rock arch from a broken mouth to an end chamber
-with stash/crystals, bounded rock lobes, light, and an interior guard. Control
-points form one broad-turn ordered walk and cannot fold a pseudo-branch back
-through the tunnel. Overlapping spheres sampled from and offset outside the same
-arch profile make visual rock equal collision rock. A dense approach route
-follows the first bend;
-terrain ramps, base/cave exclusion zones, side-only mouth rubble, and
-clearance-selected guard anchors keep entrances and enemies accessible. Turret
-hit spheres cover the armored center rather than the long barrels; the finished
-surface rejects any mount whose full hit sphere still intersects terrain or a
-registered body, preventing one-way batteries hidden inside geometry. Body
-impact damage is linear in inward closing speed after a 4 m/s dead zone, so a
-parked overlap causes none. Every other visible obstacle registers with the
-shared body list and therefore blocks ships, fire, and line of sight. There are
-also 2–3 bases from templates (`PlanetSurfaceBase.ts`) — each on an angular hub
-with radial service decks and a connected landing pad, perimeter warning pylons,
-lit slit windows, floodlight poles, cargo containers, service pipes, plus its
-silhouette: compound (3 AABB
-blocks/3 rooftop guns, antenna, roof vents) · comm (lattice relay mast +
-gimballed dish + shed/2) · depot (4 domed silos + manifold + pump house + hazard
-bunds/1, double loot) · fortress (buttressed keep, parapets, lit gate, 4 capped
-towers/4). `baseLandmarks` exposes {center, kind} for staging. Player spawns on
-the surface with **level attitude** (yaw only). Each installation gets a low
-patrol wing (2–3). Revisit persistence detaches and reattaches the exact
-surface/garrison state instead of rebuilding it from the seed.
+Terrain combines broad multi-frequency relief with 5–8 long, warped mountain
+ridges, 3–5 meandering valley systems, 4–6 rimmed craters, erosion-scale noise,
+and fine surface detail. It is sampled into a smooth-shaded SEG 210 grid;
+`heightAt` interpolates those exact rendered triangles so collision, debris, and
+ground movement agree at steep slopes and cave carves. Height ranges routinely
+exceed 450 m. Vertex color adds strata, mineral patches, altitude variation, and
+slope darkening.
+
+Every grounded installation sits on a 142 m level inner terrace, with earthworks
+blended naturally out to 220 m. Each of the 2–3 base templates keeps its original
+functional core and expands into a roughly 244 m fortified district
+(`PlanetSurfaceBaseExpansion.ts`): 16–20 m perimeter walls, gate pylons and
+lintel, corner bastions, lit avenues, landing/service decks, hangars, tiered
+towers, facade windows, skybridges, cranes, cargo, tanks, refinery stacks, or a
+citadel according to its compound/comm/depot/fortress silhouette. Major visible
+masses register tight collision and line-of-sight bodies; cosmetic panels and
+lighting stay nonblocking. A shared planet-wide material palette lets this detail
+collapse into static batches.
+
+Each district owns one tracked Vigil spiral crawler (`GroundRocketLauncher.ts`).
+It can turn and chase the player over real terrain but clamps every destination
+inside the base leash and rejects steep or structure-overlapping moves. Bases
+also retain their original rooftop batteries, loot, and 2–3 ship patrols.
+`baseLandmarks` exposes `{center, kind, radius}` and `groundLauncherSpawns`
+exposes the navigation leash for staging and regression tests.
+
+Planets independently roll a 62% chance of one airborne station
+(`PlanetSurfaceHoverBase.ts`). At roughly 170 m across it remains smaller than a
+ground district but reads as a fly-around space station: layered octagonal decks,
+four docking arms and terminals, command stack, radome, antenna, underside keel,
+and four illuminated lift pods. Its seed-selected altitude clears the highest
+terrain beneath it by at least 185 m; it carries turrets, a stash, and a patrol.
+
+The surface also contains 90 destructible boulders, bounded multi-lobe geology,
+lootable crystals, and two continuous cave routes (`PlanetSurfaceCave.ts`). Each
+cave uses one Catmull-Rom route for its visible rough arch, dense clearance path,
+and overlapping profile-matched collision shell. Terrain ramps, base/cave
+exclusion zones, side-only mouth rubble, and clearance-selected guards keep both
+ends accessible. Player spawn remains level (yaw only), and revisit persistence
+reattaches the exact surface, garrison, moved artillery, and pickups instead of
+rebuilding them from the seed.

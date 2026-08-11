@@ -8,6 +8,7 @@ import { EventBus } from '../core/EventBus';
 import { Rng } from '../core/Rng';
 import { CapitalBeamShot, CapitalShip } from '../entities/CapitalShip';
 import { EnemyShip } from '../entities/EnemyShip';
+import { GroundRocketLauncher } from '../entities/GroundRocketLauncher';
 import { NeutralShip } from '../entities/NeutralShip';
 import { PickupSystem, ResourceType } from '../entities/PickupSystem';
 import { PlayerShip } from '../entities/PlayerShip';
@@ -352,11 +353,24 @@ export class GameCombat {
     return true;
   }
 
-  turretFire(turret: Turret): void {
+  turretFire(turret: Turret): boolean {
     const host = this.host;
+    if (turret instanceof GroundRocketLauncher) {
+      turret.rocketLaunch(fireMuzzle, fireDirection);
+      if (!this.hasLineOfSight(fireMuzzle, host.player.position)) return false;
+      host.projectiles.spawnEnemyRocket(
+        fireMuzzle,
+        fireDirection,
+        host.player,
+        'salvo',
+        host.difficulty.enemyDamage,
+      );
+      host.audio.enemyMissileLaunch();
+      return true;
+    }
     fireMuzzle.copy(turret.position);
     if (turret.mountNormal) fireMuzzle.addScaledVector(turret.mountNormal, 3);
-    if (!this.hasLineOfSight(fireMuzzle, host.player.position)) return;
+    if (!this.hasLineOfSight(fireMuzzle, host.player.position)) return false;
     turret.forward(fireDirection);
     for (const gunpoint of turret.gunpoints) {
       fireMuzzle.copy(gunpoint).applyQuaternion(turret.object.quaternion).add(turret.position);
@@ -388,6 +402,7 @@ export class GameCombat {
       if (turret.weapon === 'autogun') host.audio.enemyAutogun();
       else host.audio.laser(0.5);
     }
+    return true;
   }
 
   /** Resolve the committed carrier ray and return its visually reached range. */

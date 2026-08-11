@@ -319,11 +319,12 @@ export async function runWorldSmoke(page) {
       Math.abs(game.player.object.rotation.x) < 0.01 &&
       Math.abs(game.player.object.rotation.z) < 0.01;
 
-    const surfaceTurretsClear = game.turrets.every((turret) =>
+    const fixedTurrets = game.turrets.slice(0, game.surface.turretSpawns.length);
+    const surfaceTurretsClear = fixedTurrets.every((turret) =>
       game.surface.isTurretSpawnClear(turret.position)
     );
-    window.__smoke.surfaceTurretHulls = game.turrets.map((turret) => turret.hull);
-    game.turrets.forEach((turret, index) => {
+    window.__smoke.surfaceTurretHulls = fixedTurrets.map((turret) => turret.hull);
+    fixedTurrets.forEach((turret, index) => {
       const spawn = game.surface.turretSpawns[index];
       const outward = spawn.lookAt.clone().sub(turret.position);
       outward.y = 0;
@@ -396,17 +397,18 @@ export async function runWorldSmoke(page) {
 
   await page.evaluate(() => {
     const game = window.game;
+    const fixedTurrets = game.turrets.slice(0, game.surface.turretSpawns.length);
     const firstTurret = game.turrets[0];
     window.__smoke.turretDamaged =
       !firstTurret.alive || firstTurret.hull < window.__smoke.turretHullBefore;
-    window.__smoke.allSurfaceTurretsDamageable = game.turrets.every(
+    window.__smoke.allSurfaceTurretsDamageable = fixedTurrets.every(
       (turret, index) =>
         !turret.alive || turret.hull < window.__smoke.surfaceTurretHulls[index],
     );
-    let target = game.turrets.find((turret) => turret.alive) ?? firstTurret;
+    let target = fixedTurrets.find((turret) => turret.alive) ?? firstTurret;
     let viewpoint = target.position.clone().add({ x: 0, y: 80, z: 0 });
-    for (let index = 0; index < game.turrets.length; index++) {
-      const candidate = game.turrets[index];
+    for (let index = 0; index < fixedTurrets.length; index++) {
+      const candidate = fixedTurrets[index];
       if (!candidate.alive) continue;
       const spawn = game.surface.turretSpawns[index];
       const outward = spawn.lookAt.clone().sub(candidate.position);

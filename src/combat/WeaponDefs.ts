@@ -97,6 +97,7 @@ export const MISSILE = {
 } as const;
 
 export type EnemyRocketMode = 'homing' | 'fast';
+export type EnemyOrdnanceMode = EnemyRocketMode | 'salvo';
 
 /** Tracking ordnance fires at half cadence across enemy ships and batteries. */
 export const ENEMY_HOMING_COOLDOWN_MULTIPLIER = 2;
@@ -138,6 +139,18 @@ export const ENEMY_ROCKETS = {
     maxDistance: 1311,
     attackRange: 320,
     color: new Color(1.0, 0.58, 0.1),
+  },
+  salvo: {
+    name: 'Vigil Spiral Rocket',
+    damage: 12,
+    speed: 225,
+    accel: 0,
+    maxSpeed: 225,
+    turnRate: 0,
+    life: 4.2,
+    maxDistance: 945,
+    attackRange: 680,
+    color: new Color(1.0, 0.36, 0.08),
   },
 } as const;
 

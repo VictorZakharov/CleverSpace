@@ -2,7 +2,7 @@
 
 All local and CI commands use Node.js 24.
 
-Last updated: 2026-08-02.
+Last updated: 2026-08-11.
 
 The project rule (set by the owner, non-negotiable): **every reported visual issue
 gets its own harness scene, and renders are iterated on — by actually viewing the
@@ -33,7 +33,7 @@ CSS size, actual framebuffer size/pixel ratio, megapixels, draw calls, triangles
 GPU-synchronized total frame time, simulation-only time, and render-only time.
 SwiftShader timings are useful for repeatable local comparisons, not as an absolute
 hardware FPS promise, so there is no timing threshold. The seeded scenes enforce
-machine-independent ceilings of 330 space draw calls and 90 planet draw calls. The
+machine-independent ceilings of 330 space draw calls and 110 planet draw calls. The
 planet row additionally requires static batching, no more than four surface lights,
 and an initialized collision index. Use `-- --world=planet` and/or
 `-- --profile=1080p` to shorten focused iteration.
@@ -48,7 +48,7 @@ Manual visual-test stepping supplies no wall-clock delta, keeping screenshots
 deterministic and native at the harness's 1280×720 viewport.
 
 For normal PR iteration, run only each affected scene with
-`-- --scene=<name>` and inspect its PNG. The full 37-scene SwiftShader sweep is
+`-- --scene=<name>` and inspect its PNG. The full 46-scene SwiftShader sweep is
 serial by design and reserved for broad renderer changes or release checks; it
 takes roughly three minutes on the reference Windows machine. It is not part of
 CI: generated baselines are deliberately local, while the deterministic smoke
@@ -90,7 +90,9 @@ actual regression check. Never commit generated PNGs.
 | menu / hangar / loadout / cockpit | each screen; cockpit = live-data MFDs + frame |
 | boost | camera framing at full boost (ship large, visible) |
 | cave / wreck / level / planet | POIs: cave asteroid, derelict+blackbox, capital+hauler; planet stages the outside approach looking through the broad natural arch |
-| base | Vigil ground base close-up (apron, windows, pipes, walls, rover, sign, landing pad) + rooftop turrets firing at a near-level player ~150 m out — the "turrets shoot their own roof" geometry |
+| base | HUD-free player-scale view across the complete fortified district: tall walls/gate/bastions, roads, tower, hangar, bridgework, machinery, lights, and terrain backdrop |
+| skybase | Optional airborne station at seed 9: docking arms, layered decks, command stack, lift pods, a player ship for scale, and mountain clearance below |
+| ground-launcher | HUD-free close inspection of the vertex-painted tracks, road wheels, armored chassis, elevated cradle, sensor, and all eight visible tubes |
 | trade | merchant trade screen: Buy/Sell tabs, painterly offer art, shared SVG holding/cost marks, ✕ close button |
 | fleet | all three playable hulls, CLOSE low rear-quarter above the field plane, HUD off — the range+angle where floating-part "ship slop" shows |
 | cloak | predator cloak engaged: glass hull + iridescent rim shell, dimmed engines |
@@ -148,7 +150,7 @@ SwiftShader runs ~4 FPS and dt clamps at 1/20, so sim time ≪ wall time: never
 advance helpers, direct dispatch calls, fixed-step hunter AI/camera updates).
 
 `test/smoke.mjs` is only the ordered runner. Feature probes are split into
-`hangar`, `desktop-input`, `world`, `targeting`, `capital`, `asteroid-impact`,
+`hangar`, `desktop-input`, `world`, `planetary-bases`, `targeting`, `capital`, `asteroid-impact`,
 `projectile-damage`, `debris`, `fx`, `runtime`, and `mobile` modules; shared server,
 browser-diagnostic, and artificial-time utilities live in `helpers.mjs`, while
 `assertions.mjs` converts their returned results into named failures. Keep probes
@@ -264,6 +266,11 @@ Asserted, in order:
 7. **Every** generated surface turret has a hit sphere clear of terrain/bodies and
    takes damage from its intended open firing arc; soft-lock picks a visible near
    turret at ~120 m.
+   The dedicated planetary-base probe additionally requires 115+ m base radii,
+   substantial registered architecture, at least one two-render-mesh crawler per
+   base, 450+ m terrain relief, safe optional-station clearance, real movement
+   through live base collision, a hard navigation leash, an eight-position spiral
+   burst, 5.3+ s reload gap, unguided projectiles, and overhead-shot rejection.
 8. Lift/revisit reuses the exact `PlanetSurface`: harvested bodies stay gone,
    moved pickups persist, and a zero-garrison planet remains cleared. Lift-off
    also restores the space sector bit-identically (a pre-landing scarred rock is

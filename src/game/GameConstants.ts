@@ -1,4 +1,5 @@
 import { EnemyShip } from '../entities/EnemyShip';
+import { GroundRocketLauncher } from '../entities/GroundRocketLauncher';
 import { NeutralShip } from '../entities/NeutralShip';
 import { Ship } from '../entities/Ship';
 import { Turret } from '../entities/Turret';
@@ -18,6 +19,7 @@ const TARGET_NAMES: Record<string, string> = {
   turret: 'Vigil Battery',
   'autogun-turret': 'Vigil Rotary Battery',
   'rocket-turret': 'Vigil Rocket Battery',
+  'ground-launcher': 'Vigil Spiral Crawler',
   capital: 'Warden-class Carrier',
   hauler: 'Civilian Hauler',
 };
@@ -29,6 +31,7 @@ const TARGET_ROLES: Record<string, string> = {
   turret: 'Defense battery',
   'autogun-turret': 'Rotary battery',
   'rocket-turret': 'Rocket battery',
+  'ground-launcher': 'Mobile rocket artillery',
   capital: 'Vigil carrier',
 };
 
@@ -71,6 +74,13 @@ export function targetPresentation(
       name: 'Vigil Ripper',
       relationship: 'hostile',
       detail: 'Hostile \u00b7 Autogun interceptor \u00b7 Rotary cannon',
+    };
+  }
+  if (ship instanceof GroundRocketLauncher) {
+    return {
+      name: 'Vigil Spiral Crawler',
+      relationship: 'hostile',
+      detail: 'Hostile \u00b7 Mobile artillery \u00b7 Eight-rocket spiral salvo',
     };
   }
   if (ship instanceof Turret && ship.weapon !== 'bolt') {

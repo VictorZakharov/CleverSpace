@@ -8,6 +8,7 @@ import {
   buildKestrelHull,
   buildVantaHull,
 } from './PlayerShipMeshes';
+import { buildGroundRocketLauncherHull } from './GroundRocketLauncherMesh';
 import {
   buildBomberHull,
   buildBruteHull,
@@ -31,6 +32,7 @@ export function buildShipMesh(kind: ShipKind): ShipMesh {
     case 'turret': hull = buildTurretHull(context); break;
     case 'autogun-turret': hull = buildAutogunTurretHull(context); break;
     case 'rocket-turret': hull = buildRocketTurretHull(context); break;
+    case 'ground-launcher': hull = buildGroundRocketLauncherHull(context); break;
     case 'hauler': hull = buildHaulerHull(context); break;
     case 'capital': hull = buildCapitalHull(context); break;
     case 'raider': hull = buildRaiderHull(context); break;
