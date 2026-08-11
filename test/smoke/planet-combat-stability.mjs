@@ -69,9 +69,9 @@ export async function runPlanetCombatStability(page) {
       const durabilityBefore = game.player.hull + game.player.shield;
       const origin = launcher.position.clone();
       const direction = launcher.position.clone();
-      launcher.rocketLaunch(origin, direction);
+      const singlePhase = launcher.rocketLaunch(origin, direction);
       game.projectiles.spawnEnemyRocket(
-        origin, direction, game.player, 'salvo', game.difficulty.enemyDamage,
+        origin, direction, game.player, 'salvo', game.difficulty.enemyDamage, singlePhase,
       );
       const spawned = game.projectiles.debugSnapshot().length === 1;
       for (let frame = 0; frame < 120; frame++) {
@@ -93,9 +93,9 @@ export async function runPlanetCombatStability(page) {
         for (let cycle = 0; cycle < cycles; cycle++) {
           for (let shot = 0; shot < 400; shot++) {
             launcher.tubeIndex = shot % 8;
-            launcher.rocketLaunch(origin, direction);
+            const phase = launcher.rocketLaunch(origin, direction);
             game.projectiles.spawnEnemyRocket(
-              origin, direction, game.player, 'salvo', game.difficulty.enemyDamage,
+              origin, direction, game.player, 'salvo', game.difficulty.enemyDamage, phase,
             );
             game.audio.enemyMissileLaunch();
           }

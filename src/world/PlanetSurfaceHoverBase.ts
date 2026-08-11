@@ -23,6 +23,7 @@ export const HOVER_BASE_RADIUS = 86;
 export function buildSurfaceHoverBase(
   host: SurfaceStructureHost,
   rng: Rng,
+  baseId: number,
   x: number,
   y: number,
   z: number,
@@ -75,7 +76,11 @@ export function buildSurfaceHoverBase(
     roughness: 0.22,
   });
   const center = new Vector3(x, y, z);
-  host.hoverBaseLandmarks.push({ center: center.clone(), radius: HOVER_BASE_RADIUS });
+  host.hoverBaseLandmarks.push({
+    baseId,
+    center: center.clone(),
+    radius: HOVER_BASE_RADIUS,
+  });
 
   const add = (
     mesh: Mesh,
@@ -210,12 +215,22 @@ export function buildSurfaceHoverBase(
     box(deckX, 11, side * -13.3, 32, 5, 1.1, armor, false);
   }
 
-  // Dense close-range machinery: radiator vanes, tanks, conduits, and lamps.
+  // Dense close-range machinery: enclosed radiator housings replace the old
+  // stack of disconnected blades that read as stairs floating off the hull.
   for (const side of [-1, 1]) {
+    box(side * 26, 17, 18, 12, 14, 10, armor);
+    box(side * 20, 11, 18, 9, 2.4, 4.2, dark);
     for (let index = 0; index < 4; index++) {
-      const vane = box(side * 25, 14 + index * 3.1, 18, 13, 0.45, 6.5, dark, false);
-      vane.rotation.z = side * 0.12;
-      box(side * 25, 14.35 + index * 3.1, 14.6, 10, 0.15, 0.25, window, false);
+      box(
+        side * 32.08,
+        12.7 + index * 2.65,
+        18,
+        0.22,
+        0.62,
+        7.2,
+        index % 2 === 0 ? window : dark,
+        false,
+      );
     }
     cylinder(side * 16, -2, 26, 3.2, 13, armor, 10, false);
     cylinder(side * 24, -2, 26, 3.2, 13, armor, 10, false);
@@ -244,11 +259,31 @@ export function buildSurfaceHoverBase(
   );
   halo.rotation.x = -Math.PI / 2;
 
-  host.addTurretPost(x - 24, y + 10, z, x - 220, z);
-  host.addTurretPost(x + 24, y + 10, z, x + 220, z);
-  host.addTurretPost(x, y + 6.5, z + 24, x, z + 220);
+  // Each terminal module is an unmistakable, supported defense hardpoint.
+  for (let hardpoint = 0; hardpoint < 4; hardpoint++) {
+    const angle = hardpoint * Math.PI * 0.5;
+    const ux = Math.cos(angle);
+    const uz = Math.sin(angle);
+    host.addTurretPost(
+      x + ux * 77,
+      y + 7.5,
+      z + uz * 77,
+      x + ux * 260,
+      z + uz * 260,
+      baseId,
+    );
+  }
+  for (const side of [-1, 1]) {
+    const deckY = y + 9.1;
+    host.parkedDefenderSpawns.push({
+      baseId,
+      position: new Vector3(x + side * 52, deckY + 4.5, z),
+      lookAt: new Vector3(x + side * 190, deckY + 24, z),
+    });
+  }
   host.addStash(rng, x + 52, y + 10.5, z);
   host.patrols.push({
+    baseId,
     waypoints: Array.from({ length: 5 }, (_, index) => {
       const angle = (index / 5) * Math.PI * 2 + 0.35;
       return new Vector3(

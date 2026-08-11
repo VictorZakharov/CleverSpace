@@ -5,6 +5,7 @@ import { AdaptiveResolution } from '../rendering/AdaptiveResolution';
 import { PostFx } from '../rendering/PostFx';
 import type { AsteroidBody } from '../world/AsteroidField';
 import { showPlayerDamageFeedback } from './DamageFeedback';
+import { repairPlayerOnClearedPad } from './SurfaceBaseSystems';
 import {
   CAPITAL_TURRET_LOCK_RANGE_METERS,
   targetPresentation,
@@ -220,6 +221,7 @@ export abstract class GameRuntime extends GameInteractions {
       (type) => this.combat.collect(type),
     );
     this.resolveShipCollisions(dt);
+    this.updateRepairPads(dt);
 
     if (this.updatePlayerDeath(dt)) return;
     if (this.sectorIndex > 1 && !this.surface) {
@@ -271,6 +273,8 @@ export abstract class GameRuntime extends GameInteractions {
     }
     player.velocity.y = Math.abs(player.velocity.y) * 0.25;
   }
+
+  private updateRepairPads(dt: number): void { repairPlayerOnClearedPad(dt, this.surface, this.player, this.enemies, this.turrets); }
 
   private updateExplorationStory(): void {
     const player = this.player;
@@ -421,6 +425,8 @@ export abstract class GameRuntime extends GameInteractions {
       const seesPlayer =
         playerVisible &&
         this.combat.hasLineOfSight(turretLosOrigin, player.position);
+      const detectedBase = turret.detectedSurfaceBase(player.position, seesPlayer);
+      if (detectedBase !== null) this.combat.alertSurfaceBase(detectedBase);
       turret.update(
         dt,
         player.position,

@@ -29,12 +29,13 @@ const BASE_WALL_VARIANT: Record<BaseKind, number> = {
 export function buildSurfaceBaseExpansion(
   host: SurfaceStructureHost,
   rng: Rng,
+  baseId: number,
   x: number,
   z: number,
   kind: BaseKind,
   planet: PlanetInfo,
 ): void {
-  new BaseExpansionBuilder(host, rng, x, z, kind, planet).build();
+  new BaseExpansionBuilder(host, rng, baseId, x, z, kind, planet).build();
 }
 
 class BaseExpansionBuilder {
@@ -53,6 +54,7 @@ class BaseExpansionBuilder {
   constructor(
     private readonly host: SurfaceStructureHost,
     private readonly rng: Rng,
+    private readonly baseId: number,
     private readonly bx: number,
     private readonly bz: number,
     private readonly kind: BaseKind,
@@ -475,7 +477,9 @@ class BaseExpansionBuilder {
     this.box(0, 13, 0, 44, 22, 42, this.armor);
     this.box(0, 35, 2, 31, 13, 29, this.wall);
     this.box(0, 48, 5, 22, 7, 19, this.dark);
-    this.facadeWindows(0, 2, 44, 48, 42);
+    this.facadeWindows(0, 0, 44, 22, 42, 13);
+    this.facadeWindows(0, 2, 31, 13, 29, 35);
+    this.facadeWindows(0, 5, 22, 7, 19, 48);
     for (const sx of [-1, 1]) {
       for (const sz of [-1, 1]) {
         const x = sx * 70;
@@ -493,19 +497,45 @@ class BaseExpansionBuilder {
     this.box(x, 0, z, width, height * 0.55, depth, this.wall);
     this.box(x, height * 0.55, z, width * 0.78, height * 0.28, depth * 0.82, this.armor);
     this.box(x, height * 0.83, z, width * 0.55, height * 0.17, depth * 0.6, this.wall);
-    this.facadeWindows(x, z, width, height, depth);
+    this.facadeWindows(x, z, width, height * 0.55, depth);
+    this.facadeWindows(
+      x,
+      z,
+      width * 0.78,
+      height * 0.28,
+      depth * 0.82,
+      height * 0.55,
+    );
+    this.facadeWindows(
+      x,
+      z,
+      width * 0.55,
+      height * 0.17,
+      depth * 0.6,
+      height * 0.83,
+    );
     for (const side of [-1, 1]) {
       this.box(x + side * (width * 0.5 + 1.4), 0, z, 2.8, height * 0.78, depth * 0.72, this.dark, false);
     }
   }
 
-  private facadeWindows(x: number, z: number, width: number, height: number, depth: number): void {
+  private facadeWindows(
+    x: number,
+    z: number,
+    width: number,
+    height: number,
+    depth: number,
+    baseY = 0,
+  ): void {
     const columns = Math.max(4, Math.floor(width / 6));
-    const rows = Math.max(2, Math.floor(height / 9));
+    const rows = Math.max(1, Math.floor(height / 8));
+    const margin = Math.min(4.5, Math.max(1.4, height * 0.28));
     for (let row = 0; row < rows; row++) {
       for (let column = 0; column < columns; column++) {
         const wx = x - width * 0.43 + column * (width * 0.86 / Math.max(1, columns - 1));
-        const wy = 5 + row * ((height - 8) / Math.max(1, rows));
+        const wy = baseY + margin + row * (
+          Math.max(0, height - margin * 2) / Math.max(1, rows - 1)
+        );
         for (const side of [-1, 1]) {
           this.box(wx, wy, z + side * (depth * 0.5 + 0.08), 2.7, 0.85, 0.16, this.window, false);
         }
@@ -585,19 +615,12 @@ class BaseExpansionBuilder {
       const ground = this.host.heightAt(worldX, this.bz + z);
       const position = new Vector3(worldX, ground + 0.2, this.bz + z);
       this.host.groundLauncherSpawns.push({
+        baseId: this.baseId,
         position,
         baseCenter: new Vector3(this.bx, this.ground, this.bz),
         leashRadius: this.halfExtent - 14,
         lookAt: new Vector3(this.bx, ground + 6, this.bz),
       });
-      // Recessed maintenance marking around the mobile unit's starting bay.
-      this.addMesh(
-        new Mesh(new TorusGeometry(8.2, 0.32, 5, 20), this.warning),
-        x,
-        0.5,
-        z,
-        false,
-      ).rotation.x = Math.PI / 2;
     }
   }
 }

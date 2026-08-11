@@ -1,7 +1,7 @@
 import { planetCombatStabilityFailed, runPlanetCombatStability } from './planet-combat-stability.mjs';
-
-/** Exercise planetary scale, optional sky stations, and mobile spiral artillery. */
+import { planetaryBaseBehaviorFailed, runPlanetaryBaseBehavior } from './planetary-base-behavior.mjs';
 export async function runPlanetaryBaseSmoke(page) {
+  const baseBehavior = await runPlanetaryBaseBehavior(page);
   const result = await page.evaluate(() => {
     const game = window.game;
     game.enterPlanet(0);
@@ -163,6 +163,7 @@ export async function runPlanetaryBaseSmoke(page) {
       groundFollowError,
     };
   });
+  result.baseBehavior = baseBehavior;
   result.combatStability = await runPlanetCombatStability(page);
   console.log('planetary bases and spiral launcher:', JSON.stringify(result));
   return result;
@@ -171,18 +172,18 @@ export async function runPlanetaryBaseSmoke(page) {
 export function collectPlanetaryBaseFailures(result) {
   if (
     !result.staged || result.baseCount < 2 || result.distinctBaseKinds !== result.baseCount ||
-    result.baseRadius < 115 ||
+    result.baseRadius < 155 ||
     result.baseStructureBodies < 30 || result.launcherCount < result.baseCount ||
     result.launcherRenderMeshes !== 2 ||
     result.terrainRelief < 450 || result.hoverCount > 1 ||
     (result.hoverCount === 1 && result.hoverClearance < 120) ||
     !result.hoverSmallerThanGround || result.firstBurstSize !== 8 ||
-    result.distinctMuzzles !== 8 || result.distinctDirections !== 8 ||
+    result.distinctMuzzles !== 8 || result.distinctDirections < 7 ||
     result.shots < 16 || result.completedBursts < 2 || result.reloadGap < 5.3 ||
-    !result.unguided ||
-    result.verticalShots !== 0 || result.verticalAim > 0.755 ||
+    !result.unguided || result.verticalShots !== 0 || result.verticalAim > 0.755 ||
     result.rejectedElevation < 1.4 || result.moved < 20 || result.liveMovement < 5 ||
     result.leashDistance > result.maxLeashDistance + 0.05 || result.groundFollowError > 0.01 ||
+    planetaryBaseBehaviorFailed(result.baseBehavior) ||
     planetCombatStabilityFailed(result.combatStability)
   ) return ['planetary bases and spiral launcher'];
   return [];

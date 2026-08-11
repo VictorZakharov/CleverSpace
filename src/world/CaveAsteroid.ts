@@ -23,6 +23,8 @@ import { AsteroidBody, makeBody } from './AsteroidField';
 export interface TurretSpawn {
   position: Vector3;
   lookAt: Vector3;
+  /** Planetary installation ownership; absent for asteroid and sector posts. */
+  baseId?: number;
 }
 
 interface ShellBoulder {

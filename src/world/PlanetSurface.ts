@@ -45,18 +45,23 @@ import type {
   CaveWaypoint,
   GroundLauncherSpawn,
   HoverBaseLandmark,
+  ParkedDefenderSpawn,
   SurfaceBaseLandmark,
+  SurfaceRepairPad,
   SurfacePatrol,
   SurfaceStructureHost,
 } from './PlanetSurfaceStructures';
 import { displaceRock } from './PlanetSurfaceStructures';
 import { SurfaceBodyIndex } from './SurfaceBodyIndex';
+import { SurfaceRepairPadIndicators } from './SurfaceRepairPadIndicators';
 export type {
   BaseKind,
   CaveLandmark,
   GroundLauncherSpawn,
   HoverBaseLandmark,
+  ParkedDefenderSpawn,
   SurfaceBaseLandmark,
+  SurfaceRepairPad,
   SurfacePatrol,
 } from './PlanetSurfaceStructures';
 
@@ -108,6 +113,10 @@ export class PlanetSurface {
   readonly hoverBaseLandmarks: HoverBaseLandmark[] = [];
   /** Mobile ground-defense starts, each leashed to its owning base. */
   readonly groundLauncherSpawns: GroundLauncherSpawn[] = [];
+  /** Ships visibly parked on authored decks until their installation is alerted. */
+  readonly parkedDefenderSpawns: ParkedDefenderSpawn[] = [];
+  /** Functional H pads, keyed to the defenders that must be cleared first. */
+  readonly repairPads: SurfaceRepairPad[] = [];
   readonly terrainMinHeight: number;
   readonly terrainMaxHeight: number;
   /** Loot-only view avoids scanning thousands of static cave colliders per frame. */
@@ -122,8 +131,13 @@ export class PlanetSurface {
   private readonly valleys: Valley[] = [];
   /** Level foundation terraces with a broad natural blend back into terrain. */
   private readonly pads: { x: number; z: number; r: number; flatR: number; h: number }[] = [];
-  private readonly baseSites: { x: number; z: number; kind: BaseKind }[] = [];
-  private readonly hoverBaseSite: { x: number; y: number; z: number } | null;
+  private readonly baseSites: { baseId: number; x: number; z: number; kind: BaseKind }[] = [];
+  private readonly hoverBaseSite: {
+    baseId: number;
+    x: number;
+    y: number;
+    z: number;
+  } | null;
   /** Gaussian pits carved into heightAt — the cave trenches live IN the
    *  heightfield, so terrain collision stays honest underground. */
   private readonly carves: { x: number; z: number; r: number; depth: number }[] = [];
@@ -137,6 +151,7 @@ export class PlanetSurface {
   private terrainHeights: Float32Array | null = null;
   private readonly bodyIndex = new SurfaceBodyIndex();
   private readonly localLights: SurfaceLocalLights;
+  private readonly repairPadIndicators: SurfaceRepairPadIndicators;
 
   constructor(rng: Rng, planet: PlanetInfo) {
     this.seedA = rng.range(0, 6.28);
@@ -193,11 +208,19 @@ export class PlanetSurface {
       const h = this.heightAt(x, z);
       const kind = rng.pick(availableBaseKinds);
       availableBaseKinds.splice(availableBaseKinds.indexOf(kind), 1);
-      this.baseSites.push({ x, z, kind });
-      this.pads.push({ x, z, r: 220, flatR: 142, h });
+      this.baseSites.push({ baseId: b, x, z, kind });
+      // The fortified square reaches farther at its corners than the original
+      // compact hub. Keep the complete wall footprint level, then blend broad
+      // earthworks back into the surrounding terrain.
+      this.pads.push({ x, z, r: 250, flatR: 184, h });
     }
 
-    let hoverBaseSite: { x: number; y: number; z: number } | null = null;
+    let hoverBaseSite: {
+      baseId: number;
+      x: number;
+      y: number;
+      z: number;
+    } | null = null;
     if (rng.chance(0.62)) {
       let x = 0;
       let z = 0;
@@ -218,7 +241,12 @@ export class PlanetSurface {
           this.heightAt(x + Math.cos(angle) * 105, z + Math.sin(angle) * 105),
         );
       }
-      hoverBaseSite = { x, y: localPeak + rng.range(185, 245), z };
+      hoverBaseSite = {
+        baseId: baseCount,
+        x,
+        y: localPeak + rng.range(185, 245),
+        z,
+      };
     }
     this.hoverBaseSite = hoverBaseSite;
     // Cave systems: BEFORE terrain build, plan each as a random walk of
@@ -513,21 +541,32 @@ export class PlanetSurface {
       baseLandmarks: this.baseLandmarks,
       hoverBaseLandmarks: this.hoverBaseLandmarks,
       groundLauncherSpawns: this.groundLauncherSpawns,
+      parkedDefenderSpawns: this.parkedDefenderSpawns,
+      repairPads: this.repairPads,
       heightAt: (x, z) => this.heightAt(x, z),
       registerObstacle: (object, padding) => this.registerObstacle(object, padding),
       addCrystalFormation: (sourceRng, x, y, z) =>
         this.addCrystalFormation(sourceRng, x, y, z),
       addStash: (sourceRng, x, y, z) => this.addStash(sourceRng, x, y, z),
-      addTurretPost: (x, y, z, lookX, lookZ) =>
-        this.addTurretPost(x, y, z, lookX, lookZ),
+      addTurretPost: (x, y, z, lookX, lookZ, baseId) =>
+        this.addTurretPost(x, y, z, lookX, lookZ, baseId),
     };
     for (const site of this.baseSites) {
-      buildSurfaceBase(structureHost, rng, site.x, site.z, site.kind, planet);
+      buildSurfaceBase(
+        structureHost,
+        rng,
+        site.baseId,
+        site.x,
+        site.z,
+        site.kind,
+        planet,
+      );
     }
     if (this.hoverBaseSite) {
       buildSurfaceHoverBase(
         structureHost,
         rng,
+        this.hoverBaseSite.baseId,
         this.hoverBaseSite.x,
         this.hoverBaseSite.y,
         this.hoverBaseSite.z,
@@ -551,11 +590,21 @@ export class PlanetSurface {
     this.bodyIndex.rebuild(this.bodies);
     this.localLights = new SurfaceLocalLights(this.group, 2);
     this.staticBatchStats = batchSurfaceStatics(this.group, this.bodies);
+    this.repairPadIndicators = new SurfaceRepairPadIndicators(this.group, this.repairPads);
   }
 
   /** Select the two cave lights that can materially affect the current view. */
   updatePresentation(viewerPosition: Vector3): void {
     this.localLights.update(viewerPosition);
+  }
+
+  /** Animate the lock marker independently for every installation's H pad. */
+  updateRepairPadIndicators(
+    dt: number,
+    playerPosition: Vector3,
+    isLocked: (baseId: number) => boolean,
+  ): void {
+    this.repairPadIndicators.update(dt, playerPosition, isLocked);
   }
 
   /** Broadphase candidates for a swept projectile or line-of-sight segment. */
@@ -948,7 +997,14 @@ export class PlanetSurface {
   }
 
   /** Octagonal mounting pad + a turret post on top of it. */
-  private addTurretPost(x: number, y: number, z: number, lookX: number, lookZ: number): void {
+  private addTurretPost(
+    x: number,
+    y: number,
+    z: number,
+    lookX: number,
+    lookZ: number,
+    baseId?: number,
+  ): void {
     const pad = new Mesh(
       new CylinderGeometry(2.6, 3.2, 1.2, 8),
       new MeshStandardMaterial({ color: 0x3a4048, metalness: 0.6, roughness: 0.45, flatShading: true }),
@@ -960,6 +1016,7 @@ export class PlanetSurface {
       // central hit sphere just above padded rooftop AABBs.
       position: new Vector3(x, y + 2.0, z),
       lookAt: new Vector3(lookX, y + 30, lookZ),
+      baseId,
     });
   }
 

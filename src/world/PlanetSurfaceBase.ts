@@ -24,23 +24,28 @@ const UP = new Vector3(0, 1, 0);
 export function buildSurfaceBase(
   host: SurfaceStructureHost,
   rng: Rng,
+  baseId: number,
   x: number,
   z: number,
   kind: BaseKind,
   planet: PlanetInfo,
 ): void {
-  new SurfaceBaseBuilder(host).build(rng, x, z, kind, planet);
-  buildSurfaceBaseExpansion(host, rng, x, z, kind, planet);
+  new SurfaceBaseBuilder(host).build(rng, baseId, x, z, kind, planet);
+  buildSurfaceBaseExpansion(host, rng, baseId, x, z, kind, planet);
 }
 
 /** Builds one complete Vigil installation without owning terrain state. */
 class SurfaceBaseBuilder {
+  private baseId = -1;
+
   constructor(private readonly host: SurfaceStructureHost) {}
 
   private get group() { return this.host.group; }
   private get bodies() { return this.host.bodies; }
   private get baseLandmarks() { return this.host.baseLandmarks; }
   private get patrols() { return this.host.patrols; }
+  private get parkedDefenderSpawns() { return this.host.parkedDefenderSpawns; }
+  private get repairPads() { return this.host.repairPads; }
   private heightAt(x: number, z: number): number { return this.host.heightAt(x, z); }
   private registerObstacle(object: Object3D, padding?: number): void {
     this.host.registerObstacle(object, padding);
@@ -55,10 +60,18 @@ class SurfaceBaseBuilder {
     lookX: number,
     lookZ: number,
   ): void {
-    this.host.addTurretPost(x, y, z, lookX, lookZ);
+    this.host.addTurretPost(x, y, z, lookX, lookZ, this.baseId);
   }
 
-  build(rng: Rng, bx: number, bz: number, kind: BaseKind, planet: PlanetInfo): void {
+  build(
+    rng: Rng,
+    baseId: number,
+    bx: number,
+    bz: number,
+    kind: BaseKind,
+    planet: PlanetInfo,
+  ): void {
+    this.baseId = baseId;
     const by = this.heightAt(bx, bz);
     // Low metalness: metallic surfaces go BLACK without an env map — the
     // whole base read as a dark blob against the lit terrain.
@@ -70,7 +83,12 @@ class SurfaceBaseBuilder {
       hazard: hazardMat,
       pad: padMat,
     } = getSurfaceBaseMaterials(this.group, planet);
-    this.baseLandmarks.push({ center: new Vector3(bx, by, bz), kind, radius: 122 });
+    this.baseLandmarks.push({
+      baseId,
+      center: new Vector3(bx, by, bz),
+      kind,
+      radius: kind === 'fortress' ? 174 : 160,
+    });
 
     const solid = (
       mesh: Mesh,
@@ -259,6 +277,23 @@ class SurfaceBaseBuilder {
         lamp.position.set(x + Math.cos(a) * 9.2, y + 1.3, z + Math.sin(a) * 9.2);
         deco(lamp, false);
       }
+      const deckY = y + 1.15;
+      this.repairPads.push({
+        baseId,
+        center: new Vector3(x, deckY, z),
+        radius: 8.6,
+      });
+      const outwardX = distanceFromHub > 1e-5 ? dx / distanceFromHub : 0;
+      const outwardZ = distanceFromHub > 1e-5 ? dz / distanceFromHub : 1;
+      this.parkedDefenderSpawns.push({
+        baseId,
+        position: new Vector3(x, deckY + 4.5, z),
+        lookAt: new Vector3(
+          x + outwardX * 80,
+          deckY + 18,
+          z + outwardZ * 80,
+        ),
+      });
     };
     const pylons = (r: number): void => {
       for (let i = 0; i < 8; i++) {
@@ -530,6 +565,7 @@ class SurfaceBaseBuilder {
     // A low patrol wing circling every installation.
     const patrolRadius = rng.range(140, 200);
     this.patrols.push({
+      baseId,
       waypoints: Array.from({ length: 4 }, (_, k) => {
         const a = (k / 4) * Math.PI * 2 + rng.range(0, 1);
         const px = bx + Math.cos(a) * patrolRadius;

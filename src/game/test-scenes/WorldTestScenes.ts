@@ -175,14 +175,19 @@ export function stageBase(game: Game): void {
   game.enterPlanet(0);
   game.state = 'test';
   game.hud.setVisible(false);
-  for (const enemy of game.enemies) enemy.object.visible = false;
   const landmarks = game.surface!.baseLandmarks;
   const base = landmarks.find((landmark) => landmark.kind === 'compound') ?? landmarks[0];
+  for (const enemy of game.enemies) {
+    enemy.object.visible = enemy.parkedAtBase && enemy.surfaceBaseId === base.baseId;
+  }
   const center = base.center;
   game.player.object.position.set(center.x + 108, center.y + 22, center.z + 122);
   game.player.faceToward(center);
+  for (let frame = 0; frame < 60; frame++) {
+    game.surface!.updateRepairPadIndicators(1 / 60, game.player.position, () => true);
+  }
   const camera = game.chaseCam.camera;
-  camera.position.set(center.x + 150, center.y + 68, center.z + 166);
+  camera.position.set(center.x + 142, center.y + 42, center.z + 154);
   camera.lookAt(center.x, center.y + 18, center.z);
   steps(game, 4);
 }
@@ -210,7 +215,7 @@ export function stageSkybase(game: Game): void {
   steps(game, 4);
 }
 
-/** Close player-height inspection of the tracked eight-tube artillery model. */
+/** Player-perspective inspection of a real incoming eight-rocket corkscrew. */
 export function stageGroundLauncher(game: Game): void {
   game.startMission();
   game.enterPlanet(0);
@@ -224,7 +229,7 @@ export function stageGroundLauncher(game: Game): void {
   if (!launcher) throw new Error('ground-launcher scene expects a surface crawler');
   for (const turret of game.turrets) turret.object.visible = turret === launcher;
   const center = launcher.position;
-  const aim = center.clone().add(new Vector3(-4, 17, 48));
+  const aim = center.clone().add(new Vector3(36, 42, -100));
   game.player.position.copy(aim);
   for (let frame = 0; frame < 150; frame++) {
     launcher.update(1 / 60, aim, true, () => false, true, false);
@@ -232,18 +237,20 @@ export function stageGroundLauncher(game: Game): void {
   const origin = new Vector3();
   const direction = new Vector3();
   const firstShot = launcher.totalShotsFired;
-  for (let frame = 0; frame < 90 && launcher.totalShotsFired < firstShot + 8; frame++) {
+  for (let frame = 0; frame < 120 && launcher.totalShotsFired < firstShot + 8; frame++) {
     launcher.update(1 / 60, aim, true, () => {
-      // Stagger the frozen formation while keeping every rocket in frame.
-      game.projectiles.update(0.03, [], null, [], () => {});
-      launcher.rocketLaunch(origin, direction);
-      game.projectiles.spawnEnemyRocket(origin, direction, game.player, 'salvo');
+      const phase = launcher.rocketLaunch(origin, direction);
+      game.projectiles.spawnEnemyRocket(origin, direction, game.player, 'salvo', 1, phase);
       return true;
     }, true, true);
+    game.projectiles.update(1 / 60, [], null, [], () => {});
+  }
+  for (let frame = 0; frame < 10; frame++) {
+    game.projectiles.update(1 / 60, [], null, [], () => {});
   }
   const camera = game.chaseCam.camera;
-  camera.position.copy(center).add(new Vector3(-27, 8, 10));
-  camera.lookAt(center.x - 2, center.y + 6, center.z + 14);
+  camera.position.copy(center).add(new Vector3(55, 70, -150));
+  camera.lookAt(launcher.position.x, launcher.position.y + 6, launcher.position.z);
   steps(game, 3);
 }
 

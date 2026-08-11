@@ -38,6 +38,7 @@ import {
 import { Inventory } from './Inventory';
 import { Quest, QuestSystem } from './Quests';
 import { findSafeSectorEntry } from './SpawnSafety';
+import { spawnParkedSurfaceDefenders } from './SurfaceDefenderSpawning';
 
 interface SpaceStash {
   enemies: EnemyShip[];
@@ -593,6 +594,7 @@ export class GameWorldFlow {
     for (let index = 0; index < host.surface.turretSpawns.length; index++) {
       const spawn = host.surface.turretSpawns[index];
       const turret = new Turret(host.rng.fork(), turretMix[index % turretMix.length]);
+      turret.surfaceBaseId = spawn.baseId ?? null;
       turret.object.position.copy(spawn.position);
       turret.faceToward(spawn.lookAt);
       host.scene.add(turret.object);
@@ -618,6 +620,7 @@ export class GameWorldFlow {
           host.difficulty.enemyToughness * this.threatScale(),
           patrol.waypoints,
           kind === 'raider' && index % 2 === 0 ? 'autogun' : undefined,
+          patrol.baseId,
         );
         enemy.object.position.copy(patrol.waypoints[0]);
         enemy.position.x += index * 12;
@@ -626,6 +629,11 @@ export class GameWorldFlow {
         host.enemies.push(enemy);
       }
     }
+    spawnParkedSurfaceDefenders(
+      host,
+      host.surface.parkedDefenderSpawns,
+      this.threatScale(),
+    );
   }
 
   /**

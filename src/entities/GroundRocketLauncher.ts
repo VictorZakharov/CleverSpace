@@ -50,6 +50,7 @@ export class GroundRocketLauncher extends Turret {
   ) {
     super(rng, 'fast', up, 'ground-launcher');
     this.pitchPivot = this.exterior.getObjectByName('ground-launcher-pitch') as Group;
+    this.surfaceBaseId = spawn.baseId;
     this.baseCenter = spawn.baseCenter.clone();
     this.leashRadius = spawn.leashRadius;
     this.heightAt = heightAt;
@@ -92,8 +93,12 @@ export class GroundRocketLauncher extends Turret {
     );
   }
 
+  override get detectionRange(): number {
+    return GROUND_LAUNCHER_RANGE;
+  }
+
   /** Current muzzle and non-homing spiral direction consumed by GameCombat. */
-  rocketLaunch(outPosition: Vector3, outDirection: Vector3): void {
+  rocketLaunch(outPosition: Vector3, outDirection: Vector3): number {
     const angle = (this.tubeIndex / GROUND_LAUNCHER_BURST_SIZE) * Math.PI * 2;
     launchRight.crossVectors(this.aimDirection, up).normalize();
     launchUp.crossVectors(launchRight, this.aimDirection).normalize();
@@ -106,6 +111,7 @@ export class GroundRocketLauncher extends Turret {
     // rocket on the sampled aim point avoids a hollow cone that can orbit a
     // perfectly stationary ship without ever touching it.
     outDirection.copy(this.aimPoint).sub(outPosition).normalize();
+    return angle;
   }
 
   override update(
