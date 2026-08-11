@@ -57,6 +57,7 @@ export class Turret extends Ship {
   private fireTimer: number;
   private capitalMountPosition: Vector3 | null = null;
   private capitalMountNormal: Vector3 | null = null;
+  private homingRetaliation = false;
   private readonly capitalRotation = new Quaternion();
 
   constructor(rng: Rng, weapon: TurretWeapon = 'bolt', mountNormal: Vector3 | null = null) {
@@ -79,6 +80,21 @@ export class Turret extends Ship {
     this.capitalMountPosition = position.clone();
     this.capitalMountNormal = normal.clone().normalize();
     this.capitalRotation.copy(rotation);
+  }
+
+  get homingRetaliationArmed(): boolean {
+    return this.homingRetaliation;
+  }
+
+  /** Allow one mounted seeker volley to answer an attack at bomber range. */
+  armHomingRetaliation(): void {
+    if (this.weapon === 'homing' && this.capitalMountPosition) {
+      this.homingRetaliation = true;
+    }
+  }
+
+  cancelHomingRetaliation(): void {
+    this.homingRetaliation = false;
   }
 
   /** Follow carrier motion without discarding the battery's independent aim. */
@@ -131,7 +147,10 @@ export class Turret extends Ship {
 
     toPlayer.copy(playerPos).sub(this.position);
     const dist = toPlayer.length();
-    if (dist > this.stats.range) {
+    const engagementRange = this.homingRetaliation
+      ? ENEMY_ROCKETS.homing.attackRange
+      : this.stats.range;
+    if (dist > engagementRange) {
       this.updateCommon(dt);
       return;
     }
@@ -152,6 +171,7 @@ export class Turret extends Ship {
       this.forward(fwd);
       if (fwd.dot(toPlayer) > 0.97) {
         fire(this);
+        this.homingRetaliation = false;
         this.fireTimer = this.stats.fireCooldown;
       }
     }

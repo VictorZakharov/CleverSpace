@@ -297,7 +297,9 @@ Asserted, in order:
     clamping, and first-asteroid absorption with the player/second rock protected.
     A final fresh-carrier probe applies a 26-damage non-missile player hit at 900 m
     and proves wake-up, gradual turning, forward pursuit, attached battery transforms,
-    newly clear traverse/LOS, and one long-range retaliation charge.
+    newly clear traverse/LOS, one mounted-seeker retaliation volley, no annihilator
+    charge while still beyond 500 m, and complete pending-target/pursuit loss when
+    the player cloaks.
     A synthetic `L-Ctrl + W` chord proves both movement keys stay active while the
     browser shortcut default is consumed by immersive flight input.
 11. Cloak and crafting are both refused within the shared 180 m threat perimeter;

@@ -42,7 +42,7 @@ const limits = new Map([
   ['test/smoke/world.mjs', 560],
   ['test/smoke/targeting.mjs', 460],
   ['test/smoke/capital.mjs', 360],
-  ['test/smoke/capital-retaliation.mjs', 120],
+  ['test/smoke/capital-retaliation.mjs', 135],
   ['test/smoke/runtime.mjs', 300],
   ['test/smoke/mobile.mjs', 260],
   ['test/smoke/mobile-layout.mjs', 140],

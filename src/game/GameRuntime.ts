@@ -412,6 +412,9 @@ export abstract class GameRuntime extends GameInteractions {
       if (this.surface) this.combat.resolveEnemySurfaceCollision(enemy);
     }
     this.capital?.update(dt, this.capitalBeamContext);
+    if (!playerVisible) {
+      for (const turret of this.capitalTurrets) turret.cancelHomingRetaliation();
+    }
     for (const turret of this.turrets) {
       turretLosOrigin.copy(turret.position);
       if (turret.mountNormal) turretLosOrigin.addScaledVector(turret.mountNormal, 3);

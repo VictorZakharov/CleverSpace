@@ -7,9 +7,8 @@ export async function runCapitalRetaliationSmoke(page) {
     const initialRotation = capital.object.quaternion.clone();
     const inverseRotation = initialRotation.clone().invert();
     const turret = game.capitalTurrets.find(
-      (candidate) => candidate.alive && candidate.mountNormal &&
-        candidate.position.clone().sub(capital.position)
-          .applyQuaternion(inverseRotation).x > 2,
+      (candidate) => candidate.alive && candidate.weapon === 'homing' &&
+        candidate.mountNormal,
     );
     if (!turret) return { retaliationPursuit: false };
     game.loop.stop();
@@ -41,7 +40,7 @@ export async function runCapitalRetaliationSmoke(page) {
     const hullBefore = capital.hull;
     const dormantBefore = !capital.isAwake;
     let charges = 0;
-    let chargeDistance = 0;
+    let missileVolleys = 0;
     const context = {
       player: game.player,
       playerVisible: true,
@@ -55,10 +54,7 @@ export async function runCapitalRetaliationSmoke(page) {
           );
         }
       },
-      onCharge: () => {
-        charges++;
-        chargeDistance = capital.position.distanceTo(game.player.position);
-      },
+      onCharge: () => charges++,
       onFire: (shot) => shot.range,
     };
 
@@ -70,9 +66,14 @@ export async function runCapitalRetaliationSmoke(page) {
       faction: 'player',
       wasMissile: false,
     });
+    const responseArmed = turret.homingRetaliationArmed;
     let oneSecondFacing = startFacing;
     for (let frame = 0; frame < 900; frame++) {
       capital.update(1 / 60, context);
+      turret.update(1 / 60, game.player.position, true, (source) => {
+        missileVolleys++;
+        game.combat.turretFire(source);
+      }, losFromTurret());
       if (frame === 59) {
         capital.forward(facing);
         oneSecondFacing = facing.dot(side);
@@ -94,12 +95,24 @@ export async function runCapitalRetaliationSmoke(page) {
     const traverseClear = turret.canTraverse(game.player.position);
     const lineOfSightClear = losFromTurret();
     const turretClear = traverseClear && lineOfSightClear;
+    const retaliationMissiles = game.projectiles.debugSnapshot().filter(
+      (shot) => shot.faction === 'enemy' && shot.homing,
+    ).length;
     const slowTurn = oneSecondFacing > startFacing + 0.03 && oneSecondFacing < 0.25;
+    const pursuedBeforeCloak = capital.isAwake;
+    turret.armHomingRetaliation();
+    context.playerVisible = false;
+    capital.update(1 / 60, context);
+    turret.cancelHomingRetaliation();
+    const cloakDroppedPursuit = !capital.isAwake && capital.velocity.lengthSq() === 0 &&
+      !turret.homingRetaliationArmed;
     const retaliationPursuit =
-      dormantBefore && capital.isAwake && capital.hull === hullBefore - 26 &&
+      dormantBefore && responseArmed && pursuedBeforeCloak &&
+      capital.hull === hullBefore - 26 && cloakDroppedPursuit &&
       blockedBefore && slowTurn && facing.dot(side) > 0.75 &&
       endDistance < startDistance - 5 && mountAttached && turretClear &&
-      charges === 1 && chargeDistance > 500;
+      missileVolleys === 1 && retaliationMissiles === 1 && charges === 0 &&
+      capital.beamPhase === 'idle' && endDistance > 500;
     for (const body of activeBodies) body.destroyed = false;
     return {
       retaliationPursuit,
@@ -111,8 +124,9 @@ export async function runCapitalRetaliationSmoke(page) {
       finalFacing: Number(facing.dot(side).toFixed(3)),
       distanceClosed: Number((startDistance - endDistance).toFixed(2)),
       mountAttached, turretClear, traverseClear, lineOfSightClear,
+      responseArmed, missileVolleys, retaliationMissiles, cloakDroppedPursuit,
       charges,
-      chargeDistance: Number(chargeDistance.toFixed(1)),
+      remainingDistance: Number(endDistance.toFixed(1)),
     };
   });
   console.log('capital retaliation pursuit:', JSON.stringify(result));

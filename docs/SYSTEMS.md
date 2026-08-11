@@ -170,7 +170,9 @@ same planet.
   homing rocket 76 hull / 520 m /
   6.8 s; fast rocket 70 hull / 470 u / 2.35 s. All fire only with world/terrain
   LOS. Carrier mounts additionally require the player inside their outward
-  traverse hemisphere, so top/bottom batteries never shoot through the deck.
+  traverse hemisphere, so top/bottom batteries never shoot through the deck. One
+  homing mount armed by an attack may answer once at the bomber's 1,200 m range;
+  after that volley it returns to its normal 520 m battery envelope.
   Cave-asteroid mounts sample the actual displaced rock surface and push only while
   the complete turret hit sphere overlaps a body. A blocked mouth retries another
   nearby boulder; pedestals are capped at 12 m and impossible mounts are omitted.
@@ -184,11 +186,14 @@ same planet.
   freezes on LOS loss, and clamps to the firing arc. The thick ray destroys ships
   before its first asteroid; that one rock absorbs the ray and is the only rock
   destroyed. Cooldown after firing is 11 s. Any surviving player hit, including an
-  Ion Lance bolt, wakes the carrier and arms one retaliation out to the beam's
-  1,400 m reach; frontal arc and LOS still apply. Once awake it turns at 0.12 rad/s
-  to expose a deck battery and advances at up to 12 m/s toward a 320 m standoff
-  while it can see the player. Its independently simulated batteries inherit every
-  hull translation and rotation, including their outward normals and velocity.
+  Ion Lance bolt, wakes the carrier and arms one facing homing battery for a seeker
+  retaliation; annihilator cooldown and its 500 m activation range never change.
+  Once awake it turns at 0.12 rad/s to expose the armed deck battery and advances at
+  up to 12 m/s toward a 320 m standoff while it can see the player. Its independently
+  simulated batteries inherit every hull translation and rotation, including their
+  outward normals and velocity. Cloaking drops the carrier's target, pending seeker
+  retaliation, and pursuit entirely; it stops and remains dormant after decloak
+  until the player damages it again.
 - EMP stun: hostiles dead-stick (velocity decay, no fire). Cloak: brains go blind —
   patrollers keep patrolling, engaged ships drift on their personal offset vector.
 - Ramming, asteroid scrapes, terrain impacts: speed-scaled hull damage.

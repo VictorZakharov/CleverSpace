@@ -109,7 +109,6 @@ export class CapitalShip extends Ship {
   private firingLeft = 0;
   private cooldown = 5;
   private awake = false;
-  private retaliationArmed = false;
   private visualTime = 0;
   private guideLength = CAPITAL_BEAM_RANGE;
 
@@ -175,12 +174,10 @@ export class CapitalShip extends Ship {
     return this.awake;
   }
 
-  /** Wake pursuit and arm one long-range response after surviving player damage. */
+  /** Wake pursuit after surviving player damage; weapons retain their own rules. */
   wakeForAttack(): void {
     if (!this.alive) return;
     this.awake = true;
-    this.retaliationArmed = true;
-    if (this.phase === 'idle') this.cooldown = 0;
   }
 
   update(dt: number, context?: CapitalBeamContext): void {
@@ -206,7 +203,6 @@ export class CapitalShip extends Ship {
       this.cooldown -= dt;
       this.hideBeam();
       if (context && this.cooldown <= 0 && this.canBeginCharge(context)) {
-        this.retaliationArmed = false;
         this.phase = 'charging';
         this.chargeLeft = CAPITAL_BEAM_CHARGE_TIME;
         this.lastVisiblePlayer.copy(context.player.position);
@@ -220,8 +216,8 @@ export class CapitalShip extends Ship {
   private updatePursuit(dt: number, context: CapitalBeamContext): void {
     const player = context.player;
     if (!player.alive || !context.playerVisible) {
-      this.velocity.multiplyScalar(Math.pow(0.6, dt));
-      this.position.addScaledVector(this.velocity, dt);
+      this.awake = false;
+      this.velocity.set(0, 0, 0);
       this.throttle = 0.25;
       return;
     }
@@ -276,12 +272,9 @@ export class CapitalShip extends Ship {
 
   private canBeginCharge(context: CapitalBeamContext): boolean {
     if (!context.player.alive || !context.playerVisible) return false;
-    const activationRange = this.retaliationArmed
-      ? CAPITAL_BEAM_RANGE
-      : CAPITAL_BEAM_ACTIVATION_RANGE;
     if (
       context.player.position.distanceToSquared(this.position) >
-      activationRange ** 2
+      CAPITAL_BEAM_ACTIVATION_RANGE ** 2
     ) return false;
     this.worldMuzzle(beamOrigin);
     this.forward(beamForward);
