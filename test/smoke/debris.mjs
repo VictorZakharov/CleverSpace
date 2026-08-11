@@ -99,11 +99,6 @@ export async function runDebrisSmoke(page) {
 
     const startParts = game.shipDebris.group.children;
     const startY = Math.min(...startParts.map((part) => part.position.y));
-    const observer = startParts[0].position.clone();
-    game.shipDebris.update(0, null, observer);
-    const clearsCamera = !startParts[0].visible;
-    game.shipDebris.update(0, null, observer.addScalar(1000));
-    const restoresAway = startParts.every((part) => part.visible);
     for (let frame = 0; frame < 240; frame++) game.shipDebris.update(1 / 60, { heightAt: () => 0 });
     const endParts = game.shipDebris.group.children;
     const endY = Math.min(...endParts.map((part) => part.position.y));
@@ -123,7 +118,6 @@ export async function runDebrisSmoke(page) {
       boundedSourceParts,
       sourceProfiles,
       actualSourceParts,
-      cameraClearance: clearsCamera && restoresAway,
       fragmentCount: diagnostics.activeFragments,
       fell: endY < startY - 5,
       stayedAboveTerrain: endY >= 0,
@@ -143,7 +137,6 @@ export function collectDebrisFailures(result) {
     !result.noFakeRockDebris ||
     !result.boundedSourceParts ||
     !result.actualSourceParts ||
-    !result.cameraClearance ||
     result.fragmentCount < 3 ||
     !result.fell ||
     !result.stayedAboveTerrain

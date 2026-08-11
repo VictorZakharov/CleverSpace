@@ -20,10 +20,6 @@ export function batchStaticMeshes(root: Group): void {
     const mesh = object as Mesh;
     if (!mesh.isMesh || Array.isArray(mesh.material)) return;
     if (mesh.userData.excludeFromBatching) return;
-    // This traversal runs once, before runtime VFX are attached. Debris uses
-    // this positive authored-part boundary instead of blacklisting every
-    // shield, beam, cloak shell, or future transient mesh.
-    mesh.userData.shipDebrisSource = true;
     sources.push(mesh);
     const material = mesh.material as Material;
     const group = byMaterial.get(material);

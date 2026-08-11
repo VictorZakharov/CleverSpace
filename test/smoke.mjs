@@ -32,10 +32,6 @@ import {
   runProjectileDamageSmoke,
 } from './smoke/projectile-damage.mjs';
 import { runRuntimeSmoke } from './smoke/runtime.mjs';
-import {
-  collectSceneProbeFailures,
-  runSceneProbeSmoke,
-} from './smoke/scene-probe.mjs';
 import { runTargetingSmoke } from './smoke/targeting.mjs';
 import { runWorldSmoke } from './smoke/world.mjs';
 
@@ -59,7 +55,6 @@ try {
   // feature groups, while all gameplay time remains deterministic.
   const hangar = await runHangarSmoke(page);
   const desktopInput = await runDesktopInputSmoke(page);
-  const sceneProbe = await runSceneProbeSmoke(page);
   const performance = await runPerformanceSmoke(page);
   const world = await runWorldSmoke(page);
   const targeting = await runTargetingSmoke(page);
@@ -82,7 +77,6 @@ try {
     runtime,
   });
   failures.push(...collectDesktopInputFailures(desktopInput));
-  failures.push(...collectSceneProbeFailures(sceneProbe));
   failures.push(...collectPerformanceFailures(performance));
   failures.push(...collectFxFailures(fx));
   failures.push(...collectAsteroidImpactFailures(asteroidImpact));

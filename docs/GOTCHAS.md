@@ -174,10 +174,12 @@ Real issues hit while building this game, kept here so they only get paid for on
   outside the preview camera and produces an apparently empty canvas. Translate by
   `-center * scale`. Long ships also need a bounded, uniform projected-size zoom
   when nose-on; never distort axes or replace the true relative quaternion.
-- **A nominal asteroid radius is not its displaced visual surface.** Cave batteries
-  placed at a fixed fraction of the generator radius can land inside scaled rock.
-  Project the actual transformed vertices along the mount normal, clear the full
-  turret hit sphere against every body, and stretch the pedestal to the final root.
+- **Turret-mount clearance is a local overlap query, not an infinite ray cast.**
+  Cave batteries still project the actual displaced vertices for their surface and
+  clear the full turret hit sphere. But an asteroid merely lying farther along the
+  outward ray must not move the root: that bug stretched pedestals as far as 1.5 km.
+  Test current overlap before calculating an exit, retry another mouth-side boulder
+  when blocked, and reject any pedestal longer than 12 m.
 - **The longest-axis asteroid radius is also wrong for an ore spike.** On a stretched
   instance it turns a side-mounted vein into a giant sail. Transform the vein normal
   into the instance's ellipsoid space, derive that direction's surface radius, and
@@ -389,10 +391,6 @@ Real issues hit while building this game, kept here so they only get paid for on
   batching now positively tags the authored source set before any runtime VFX is
   attached. Breakup accepts only that set, then applies the dimensional/extent guard
   for antennae, barrels, and light strips.
-- **Even valid hull debris becomes a giant stick when it crosses the lens.** Intrinsic
-  aspect-ratio caps cannot prevent perspective from magnifying a normal pod or plate.
-  `ShipDebris.update` therefore maintains a camera-clearance sphere derived from each
-  fragment's real bounding radius; gameplay supplies the chase-camera position.
 - **A shield fresnel term by itself lights the entire bubble.** Directional feedback
   must transform the world hit point into ship-local space and discard fragments
   whose local normal faces away from that direction. Trigger the shell only if the

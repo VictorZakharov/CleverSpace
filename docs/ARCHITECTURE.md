@@ -59,7 +59,7 @@ src/
     AsteroidField.ts      4 displaced geometry variants × InstancedMesh; ore veins; hp;
                           crystal hit volumes; drifting/spinning reserved child slots
     AsteroidBreakup.ts    replaces shattered rocks with smaller inertial live bodies
-    CaveAsteroid.ts       hollow hero asteroids: boulder shell + crystals + stash + turret posts
+    CaveAsteroid.ts       hollow hero asteroids + collision-clear, bounded turret pedestals
     FogBanks.ts           three instanced noise-billboard batches (volumetric stand-in)
     WreckSite.ts          derelict hulks with lootable blackboxes (unmarked POIs)
     PlanetSurface.ts      landable terrain/collision core + revisit-stable landmarks
@@ -295,9 +295,9 @@ silently restoring an expensive native 4K target.
 
 Procedural ships are authored as connected primitive parts, then
 `StaticMeshBatching` fuses parts sharing a material for rendering. Originals stay
-visible to gameplay traversals on camera-disabled layer 31 and carry
-`shipDebrisSource`; batches carry `excludeFromConnectivityAudit`, so destruction and
-structural tests still consume real components rather than one artificial combined shell.
+visible to gameplay traversals on camera-disabled layer 31; authored ship parts carry
+`shipDebrisSource`, while batches carry `excludeFromConnectivityAudit`, so destruction
+and structural tests still consume real components rather than one artificial combined shell.
 Target previews and cloak shells likewise traverse only the rendered copy. Cave
 shells use the same mechanism, and fog uses instanced camera-facing quads.
 
@@ -314,7 +314,7 @@ See `test/visual/run.mjs`, `src/game/TestScenes.ts`, and
 `src/game/test-scenes/`. Deterministic because:
 seeded Rng, `GameLoop.stepManual` (no wall clock), frozen CSS animations
 (injected style pauses everything at t=1s), SwiftShader software GL in headless
-Chromium. Same machine → 0.000% pixel diff. The current 43 scenes cover world art,
+Chromium. Same machine → 0.000% pixel diff. The current 44 scenes cover world art,
 ships, combat/FX, hostile and civilian HUD targeting, every major screen,
 caves/bases/wrecks, trade, fleet connectivity, cloak, controls, enemy ordnance,
 missile warnings, volumetric destruction, the carrier superweapon, and phone

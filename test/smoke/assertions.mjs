@@ -193,6 +193,7 @@ export function collectSmokeFailures(results) {
     postJump.missileWarning ||
     !postJump.facesMajority ||
     postJump.caveTurretCount < 2 ||
+    !postJump.boundedCavePads ||
     !postJump.spaceTurretsClear
   ) failures.push('safe hostile-sector entry');
 

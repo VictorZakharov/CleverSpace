@@ -247,6 +247,9 @@ export function finishShipBuild(
     engineGlows.push(sprite);
   }
 
+  group.traverse((object) => {
+    if ((object as Mesh).isMesh) object.userData.shipDebrisSource = true;
+  });
   batchStaticMeshes(group);
 
   return {
