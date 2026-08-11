@@ -10,6 +10,7 @@ import {
   targetPresentation,
 } from './GameConstants';
 import { GameInteractions } from './GameInteractions';
+import { inspectSceneCrosshair, SceneProbeReport } from './SceneProbe';
 
 const menuLook = new Vector3();
 const trailPos = new Vector3();
@@ -165,6 +166,7 @@ export abstract class GameRuntime extends GameInteractions {
       this.chaseCam.toggleMode();
       this.audio.uiClick();
     }
+    if (this.input.wasPressed('F8')) this.inspectCrosshair();
     if (this.jumpSpool < 0 && this.input.wasPressed('KeyJ')) this.startJump();
     if (this.input.wasPressed('KeyF')) this.activateCloak();
     if (this.input.wasPressed('KeyG')) this.activateEmp();
@@ -226,6 +228,17 @@ export abstract class GameRuntime extends GameInteractions {
     );
     this.updateCameraPresentation(dt);
     this.updateHud(dt);
+  }
+
+  /** Temporary issue #18 diagnostic: inspect the visible object under the reticle. */
+  inspectCrosshair(): SceneProbeReport {
+    const report = inspectSceneCrosshair(this.scene, this.chaseCam.camera);
+    this.hud.showBanner(
+      report.hits.length > 0
+        ? 'Scene probe logged to console'
+        : 'Scene probe found no object',
+    );
+    return report;
   }
 
   private updateDevices(dt: number): void {
