@@ -529,6 +529,9 @@ export async function runWorldSmoke(page) {
       const facing = mean.clone();
       game.player.forward(facing);
       const caveTurretCount = game.sector.turretSpawns.length;
+      const boundedCavePads = game.sector.caves.every((cave) =>
+        cave.turretPads.length > 0 && cave.turretPads.every((pad) => pad.length <= 12)
+      );
       const spaceTurretsClear = game.sector.turretSpawns.every((spawn, index) => {
         const turret = game.turrets[index];
         if (!turret || turret.position.distanceToSquared(spawn.position) > 0.001) return false;
@@ -544,6 +547,7 @@ export async function runWorldSmoke(page) {
         missileWarning: incoming.locked || incoming.imminent,
         facesMajority: mean.lengthSq() < 1e-4 || facing.dot(mean.normalize()) > 0.999,
         caveTurretCount,
+        boundedCavePads,
         spaceTurretsClear,
       };
     })(),

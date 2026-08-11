@@ -65,6 +65,34 @@ export function stageCave(game: Game): void {
   steps(game, 4);
 }
 
+/** Exterior cave mouth and its bounded, surface-attached turret pedestal. */
+export function stageCaveTurretPads(game: Game): void {
+  game.startMission();
+  game.state = 'test';
+  game.hud.clearComms();
+  game.hud.setVisible(false);
+  game.player.object.visible = false;
+  for (const mesh of game.sector.asteroids.meshes) mesh.visible = false;
+  for (const group of game.sector.planetGroups) group.visible = false;
+  for (const wreck of game.sector.wrecks) wreck.group.visible = false;
+
+  const cave = game.sector.caves[1] ?? game.sector.caves[0];
+  for (const other of game.sector.caves) other.group.visible = other === cave;
+  if (cave.turretPads.length === 0) throw new Error('cave pad scene expects a valid mount');
+  const pad = cave.turretPads.reduce(
+    (longest, candidate) => candidate.length > longest.length ? candidate : longest,
+  );
+  const up = Math.abs(pad.normal.y) < 0.9 ? new Vector3(0, 1, 0) : new Vector3(1, 0, 0);
+  const side = new Vector3().crossVectors(pad.normal, up).normalize();
+  const camera = game.chaseCam.camera;
+  camera.position.copy(pad.position)
+    .addScaledVector(side, 48)
+    .addScaledVector(up, 10)
+    .addScaledVector(pad.normal, 4);
+  camera.lookAt(pad.position);
+  steps(game, 4);
+}
+
 /** A large asteroid mid-shatter with only persistent, destructible child rocks. */
 export function stageSplit(game: Game): void {
   game.state = 'test';

@@ -25,6 +25,20 @@ export interface TurretSpawn {
   lookAt: Vector3;
 }
 
+interface ShellBoulder {
+  position: Vector3;
+  radius: number;
+  mesh: Mesh;
+}
+
+interface TurretMount extends TurretSpawn {
+  normal: Vector3;
+  surface: Vector3;
+  padLength: number;
+}
+
+const MAX_TURRET_PAD_LENGTH = 12;
+
 /**
  * A hero asteroid you can fly INSIDE: a shell of huge boulders around a
  * hollow cavity, with two openings along its axis. The cavity hides the good
@@ -37,6 +51,8 @@ export class CaveAsteroid {
   readonly center: Vector3;
   /** Where Game should place defense turrets. */
   readonly turretSpawns: TurretSpawn[] = [];
+  /** Test/visual-harness view of the authored pedestal geometry. */
+  readonly turretPads: { position: Vector3; normal: Vector3; length: number }[] = [];
 
   constructor(
     rng: Rng,
@@ -62,7 +78,7 @@ export class CaveAsteroid {
     this.group.add(shellGroup, padGroup);
 
     // Boulder shell: big displaced rocks on a sphere, skipping the axis caps.
-    const shell: { position: Vector3; radius: number; mesh: Mesh }[] = [];
+    const shell: ShellBoulder[] = [];
     const boulderCount = 10;
     let placed = 0;
     let guard = 0;
@@ -161,35 +177,21 @@ export class CaveAsteroid {
     });
     for (const sign of [1, -1]) {
       const mouth = axis.clone().multiplyScalar(sign * cavityRadius);
-      let nearest = shell[0];
-      for (const b of shell) {
-        if (b.position.distanceToSquared(mouth) < nearest.position.distanceToSquared(mouth)) {
-          nearest = b;
-        }
-      }
-      // Surface point on the boulder facing the mouth.
-      const normal = mouth.clone().sub(nearest.position).normalize();
-      const surfaceDistance = supportDistance(nearest.mesh, normal);
-      const surface = nearest.position.clone().addScaledVector(normal, surfaceDistance);
-      const rootDistance = Math.max(surfaceDistance, nearest.radius) +
-        TURRET_COLLISION_RADIUS + 0.35;
-      const worldPos = clearTurretSpawn(
-        nearest.position.clone().add(center).addScaledVector(normal, rootDistance),
-        normal,
-        bodies,
-      );
-      // Stretch the mounting pedestal from the real displaced surface to the
-      // collision-clear root. This avoids both embedded and visibly floating guns.
-      const finalRootDistance = worldPos.clone().sub(center).sub(surface).dot(normal);
-      const padLength = Math.max(1.2, finalRootDistance - 0.65);
-      const pad = new Mesh(new CylinderGeometry(2.2, 2.8, padLength, 10), padMat);
-      pad.position.copy(surface).addScaledVector(normal, padLength * 0.5);
-      pad.quaternion.setFromUnitVectors(new Vector3(0, 1, 0), normal);
+      const mount = findTurretMount(mouth, center, shell, bodies);
+      if (!mount) continue;
+      const pad = new Mesh(new CylinderGeometry(2.2, 2.8, mount.padLength, 10), padMat);
+      pad.position.copy(mount.surface).addScaledVector(mount.normal, mount.padLength * 0.5);
+      pad.quaternion.setFromUnitVectors(new Vector3(0, 1, 0), mount.normal);
       padGroup.add(pad);
+      this.turretPads.push({
+        position: pad.position.clone().add(center),
+        normal: mount.normal.clone(),
+        length: mount.padLength,
+      });
 
       this.turretSpawns.push({
-        position: worldPos,
-        lookAt: axis.clone().multiplyScalar(sign * 500).add(center),
+        position: mount.position,
+        lookAt: mount.lookAt,
       });
     }
     batchStaticMeshes(shellGroup);
@@ -209,6 +211,43 @@ export class CaveAsteroid {
     haze.scale.setScalar(cavityRadius * 2.2);
     this.group.add(haze);
   }
+}
+
+/** Pick the nearest mouth-side boulder that needs only a short, attached pad. */
+function findTurretMount(
+  mouth: Vector3,
+  center: Vector3,
+  shell: readonly ShellBoulder[],
+  bodies: readonly AsteroidBody[],
+): TurretMount | null {
+  const sameSide = shell.filter((boulder) => boulder.position.dot(mouth) > 0);
+  const candidates = (sameSide.length > 0 ? sameSide : [...shell])
+    .sort((a, b) => a.position.distanceToSquared(mouth) - b.position.distanceToSquared(mouth));
+  for (const boulder of candidates) {
+    const normal = mouth.clone().sub(boulder.position).normalize();
+    const surfaceDistance = supportDistance(boulder.mesh, normal);
+    const surface = boulder.position.clone().addScaledVector(normal, surfaceDistance);
+    const rootDistance = Math.max(surfaceDistance, boulder.radius) +
+      TURRET_COLLISION_RADIUS + 0.35;
+    const position = clearTurretSpawn(
+      boulder.position.clone().add(center).addScaledVector(normal, rootDistance),
+      normal,
+      bodies,
+    );
+    const padLength = Math.max(
+      1.2,
+      position.clone().sub(center).sub(surface).dot(normal) - 0.65,
+    );
+    if (padLength > MAX_TURRET_PAD_LENGTH) continue;
+    return {
+      position,
+      lookAt: mouth.clone().normalize().multiplyScalar(500).add(center),
+      normal,
+      surface,
+      padLength,
+    };
+  }
+  return null;
 }
 
 /** Furthest actual mesh vertex in a world-local direction after scale/rotation. */
@@ -240,9 +279,12 @@ function clearTurretSpawn(
       if (body.destroyed) continue;
       offset.copy(result).sub(body.position);
       const minimum = body.radius + radius;
+      const distanceSq = offset.lengthSq();
+      // A body farther along this ray is not a mount collision. Without this
+      // overlap guard, the pedestal stretches past arbitrary distant rocks.
+      if (distanceSq >= minimum * minimum) continue;
       const along = offset.dot(outward);
-      const perpendicularSq = Math.max(0, offset.lengthSq() - along * along);
-      if (perpendicularSq >= minimum * minimum) continue;
+      const perpendicularSq = Math.max(0, distanceSq - along * along);
       const exit = -along + Math.sqrt(minimum * minimum - perpendicularSq) + 0.08;
       requiredPush = Math.max(requiredPush, exit);
     }

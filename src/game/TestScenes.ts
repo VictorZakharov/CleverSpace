@@ -45,6 +45,7 @@ import {
   stageAsteroids,
   stageBase,
   stageCave,
+  stageCaveTurretPads,
   stageFleet,
   stageLevel,
   stageNebula,
@@ -84,6 +85,7 @@ const TEST_SCENES: Readonly<Record<string, (game: Game) => void>> = {
   'damage-shake': stageDamageShake,
   'asteroid-impact': stageAsteroidImpact,
   'ship-breakup': stageShipBreakup,
+  'cave-turret-pads': stageCaveTurretPads,
   cave: stageCave,
   split: stageSplit,
   level: stageLevel,
@@ -106,10 +108,7 @@ const TEST_SCENES: Readonly<Record<string, (game: Game) => void>> = {
   'capital-charge-guide': stageCapitalChargeGuide,
 };
 
-/**
- * Stage one deterministic visual-regression scene, advance only fixed manual
- * steps, and raise the completion flag consumed by the capture harness.
- */
+/** Stage a deterministic scene, advance fixed steps, and signal the capture harness. */
 export function runTestScene(game: Game, name: string): void {
   const stage = TEST_SCENES[name];
   if (!stage) throw new Error(`Unknown test scene: ${name}`);

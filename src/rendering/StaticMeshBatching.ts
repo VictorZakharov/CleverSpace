@@ -48,7 +48,6 @@ export function batchStaticMeshes(root: Group): void {
     batch.castShadow = meshes.some((mesh) => mesh.castShadow);
     batch.receiveShadow = meshes.some((mesh) => mesh.receiveShadow);
     batch.userData.renderBatch = true;
-    batch.userData.excludeFromDebris = true;
     batch.userData.excludeFromConnectivityAudit = true;
     root.add(batch);
 

@@ -64,26 +64,27 @@ export async function runDebrisSmoke(page) {
     const sources = sourcePool.filter((ship, index) => (
       sourcePool.findIndex((candidate) => candidate.kind === ship.kind) === index
     ));
+    game.cloakVisual.set(game.player, true);
     const sourceProfiles = sources.map((ship) => {
       game.shipDebris.update(30, null);
       ship.object.updateWorldMatrix(true, true);
-      const forcedVisibility = [];
+      const authoredParts = new Set();
       ship.object.traverse((node) => {
-        if (node.userData.excludeFromDebris !== true) return;
-        node.traverse((excluded) => {
-          forcedVisibility.push([excluded, excluded.visible]);
-          excluded.visible = true;
-        });
+        if (node.userData.shipDebrisSource === true) authoredParts.add(node.uuid);
       });
       game.shipDebris.spawn(ship.object, ship.velocity, ship.radius, game.rng);
-      for (const [node, visible] of forcedVisibility) node.visible = visible;
       const audit = game.shipDebris.diagnostics();
       return { kind: ship.kind, fragments: audit.activeFragments,
         elongation: audit.maxElongation, extent: audit.maxExtent,
-        extentLimit: Math.max(4, ship.radius * 2.2) };
+        extentLimit: Math.max(4, ship.radius * 2.2),
+        authoredOnly: game.shipDebris.group.children.every((fragment) => (
+          authoredParts.has(fragment.userData.sourcePartUuid)
+        )) };
     });
+    game.cloakVisual.set(game.player, false);
     const boundedSourceParts = sourceProfiles.length >= 2 && sourceProfiles.every((profile) => (
-      profile.fragments >= 3 && profile.elongation <= 6.001 && profile.extent <= profile.extentLimit
+      profile.fragments >= 3 && profile.authoredOnly &&
+      profile.elongation <= 6.001 && profile.extent <= profile.extentLimit
     ));
     game.shipDebris.update(30, null);
 

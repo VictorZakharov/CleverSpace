@@ -73,9 +73,9 @@ Real issues hit while building this game, kept here so they only get paid for on
 - **A batched hull deliberately exists twice in the scene graph.** Layer-31
   source parts preserve exact geometry for audits and debris; layer-0 fused meshes
   are the only rendered copies. Manual traversals that build visuals (target
-  previews, cloak shells) must skip `renderBatchSource`, while destruction must
-  skip `excludeFromDebris`. Removing either side causes duplicate renders or fake
-  monolithic wreckage.
+  previews, cloak shells) must skip `renderBatchSource`, while destruction accepts
+  only the pre-batching `shipDebrisSource` set. Removing either side causes duplicate
+  renders or fake monolithic wreckage.
 
 ## Determinism / visual tests
 
@@ -174,10 +174,12 @@ Real issues hit while building this game, kept here so they only get paid for on
   outside the preview camera and produces an apparently empty canvas. Translate by
   `-center * scale`. Long ships also need a bounded, uniform projected-size zoom
   when nose-on; never distort axes or replace the true relative quaternion.
-- **A nominal asteroid radius is not its displaced visual surface.** Cave batteries
-  placed at a fixed fraction of the generator radius can land inside scaled rock.
-  Project the actual transformed vertices along the mount normal, clear the full
-  turret hit sphere against every body, and stretch the pedestal to the final root.
+- **Turret-mount clearance is a local overlap query, not an infinite ray cast.**
+  Cave batteries still project the actual displaced vertices for their surface and
+  clear the full turret hit sphere. But an asteroid merely lying farther along the
+  outward ray must not move the root: that bug stretched pedestals as far as 1.5 km.
+  Test current overlap before calculating an exit, retry another mouth-side boulder
+  when blocked, and reject any pedestal longer than 12 m.
 - **The longest-axis asteroid radius is also wrong for an ore spike.** On a stretched
   instance it turns a side-mounted vein into a giant sail. Transform the vein normal
   into the instance's ellipsoid space, derive that direction's surface radius, and
@@ -383,13 +385,12 @@ Real issues hit while building this game, kept here so they only get paid for on
   disposal cannot invalidate a fragment. Planetary motion reuses `heightAt`; a second
   physics engine or duplicate terrain collider would drift out of sync. Asteroid
   breakup instead creates real `AsteroidBody` children—never cosmetic rock fragments.
-- **A transparent beam can still be a visible mesh.** The carrier superweapon keeps
-  its meshes present and drives shader opacity to zero; selecting breakup parts by
-  `Object3D.visible` therefore cloned a 1.4 km cylinder into a non-colliding “stick.”
-  Mark transient VFX subtrees `excludeFromDebris` and retain the dimensional
-  elongation guard for antennae, barrels, and light strips. Also cap part extent and
-  center offset relative to hull radius: a malformed beam can have an ordinary aspect
-  ratio and still become a finite but enormous non-colliding rod.
+- **A visibility test plus a VFX blacklist cannot define physical debris.** The
+  carrier beam, shield bubble, and cloak shell can all remain visible scene meshes;
+  every new effect made a negative `excludeFromDebris` contract leak again. Hull
+  batching now positively tags the authored source set before any runtime VFX is
+  attached. Breakup accepts only that set, then applies the dimensional/extent guard
+  for antennae, barrels, and light strips.
 - **A shield fresnel term by itself lights the entire bubble.** Directional feedback
   must transform the world hit point into ship-local space and discard fragments
   whose local normal faces away from that direction. Trigger the shell only if the

@@ -48,8 +48,8 @@ WebGL resolution is adaptive and independent of CSS/HUD resolution. Preserve the
 workload across resize/fullscreen. Manual test stepping intentionally supplies no
 wall-clock sample, so visual baselines do not change with machine speed.
 Static procedural meshes are material-batched for rendering. Authored source parts
-remain on camera-disabled layer 31 for connectivity/debris; visual traversals skip
-`renderBatchSource`, while destruction skips `excludeFromDebris`. Repeated fog
+remain on camera-disabled layer 31 for connectivity/debris; authored ship parts carry
+the positive `shipDebrisSource` marker. Visual traversals skip `renderBatchSource`. Repeated fog
 cards are instanced, not independent sprites. Planet surfaces separately merge
 immutable opaque decoration, retain destructible/test geometry, and expose static
 bodies through `SurfaceBodyIndex`; collision, LOS, and projectile code must query
@@ -83,7 +83,9 @@ base/cave exclusion zones, open guard anchors, bounded rock aspect ratios, and
 closing-speed collision damage whenever surface generation changes.
 
 Space-cave batteries must sit beyond every asteroid collision body; derive their
-mount surface from the displaced mesh and bridge any clearance offset with the pad.
+mount surface from the displaced mesh. Clearance pushes only resolve bodies
+overlapping the current root, retry another mouth-side boulder when blocked, and
+never author a pedestal longer than 12 m.
 
 Hangar selection clicks are persistence commits. Save ship/difficulty synchronously
 inside the click callbacks; do not defer them to Engage or game entry.

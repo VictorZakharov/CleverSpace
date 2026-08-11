@@ -16,7 +16,7 @@ covered by one of the two.
 npm run test:architecture     # controller + smoke-module line-size budgets
 npm run typecheck            # strict TS
 npm run test:performance     # production renderer report at 1080p and two 4K profiles
-npm run test:visual          # 43 scenes vs local baselines (builds first)
+npm run test:visual          # 44 scenes vs local baselines (builds first)
 npm run test:visual:update   # re-capture local baselines (--scene=<name> for one)
 npm run test:smoke           # full gameplay loop in live headless Chromium
 ```
@@ -80,6 +80,7 @@ actual regression check. Never commit generated PNGs.
 | damage-shake | deterministic heavy-hull-hit framing: positional/rotational kick + HUD flash |
 | asteroid-impact | live projectile entry point and surface-protruding asteroid impact FX |
 | ship-breakup | unobscured post-blast plate of cloned components from the actual destroyed Kestrel hull |
+| cave-turret-pads | exterior cave view framing the longest bounded, surface-attached battery pedestal |
 | hud | full HUD: panels, jump spool + warp streaks, contract OFFER panel, quest tracker, merchant note |
 | targeting | hostile marker semantics: lock box + lead/range, red/amber/grey contacts, edge chevrons, radar, live fire |
 | distant-targeting | no-pursuit angular scan beyond 1.5 km: centred 1,847 m hostile selected over a nearer off-axis contact |
@@ -193,9 +194,10 @@ collidable children with finite HP, then destroys one child to prove it is gamep
 geometry rather than expiring decoration. It advances the field and requires every
 child to translate outward and rotate. Separately, it audits every live hull/turret
 kind: every fragment must retain a source-part identity and stay below hull-relative
-rod/oversize bounds even with excluded superweapon VFX forced visible. It then advances a
-player breakup through four seconds of artificial gravity against a deterministic
-terrain sampler to prove the parts fall and remain above the rendered ground.
+rod/oversize bounds, and a cloaked player may yield only positively tagged authored
+parts—never its shield or cloak shell. It then advances a player breakup through
+four seconds of artificial gravity against a deterministic terrain sampler to prove
+the parts fall and remain above the rendered ground.
 
 The asteroid-impact probe fires both a bolt and missile through the live projectile
 system into transformed instanced geometry. It requires a unit face normal and
@@ -268,7 +270,8 @@ Asserted, in order:
    checked).
 9. A controlled hold-jump shows required/held Flux, then (straight up, high, clear corridor) reaches hostile
    sector 2. Every cave-asteroid battery root clears every rock body by its full
-   hit radius; dispatched hunters close from >20 u, the camera follows a teleport,
+   hit radius, every cave retains a guard, and every visible pedestal is at most
+   12 m; dispatched hunters close from >20 u, the camera follows a teleport,
    overhead turret aim dot→1, and cloak/EMP/nanobots all function.
 10. Range-policy staging proves close hostiles are distance weighted, distant
     hostiles are camera-angle ranked, and an on-crosshair civilian beats an off-axis

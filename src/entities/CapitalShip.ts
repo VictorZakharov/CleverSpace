@@ -97,9 +97,8 @@ export class CapitalShip extends Ship {
     super('capital', 1600, 0, 0, 999);
     this.throttle = 0.25;
 
-    // Charge guides, beam cylinders, orb, and rings are transient VFX rather
-    // than carrier structure; never clone this subtree into physical debris.
-    this.beamPivot.userData.excludeFromDebris = true;
+    // Charge guides, beam cylinders, orb, and rings are runtime VFX. Ship
+    // debris only accepts authored hull sources created before this subtree.
     this.beamPivot.position.copy(localMuzzle);
     this.object.add(this.beamPivot);
     const cylinder = new CylinderGeometry(1, 1, 1, 16, 1, true);
