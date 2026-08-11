@@ -36,6 +36,8 @@ export interface ShipDebrisDiagnostics {
 const worldPosition = new Vector3();
 const outward = new Vector3();
 const randomDirection = new Vector3();
+const CAMERA_CLEARANCE_SCALE = 3;
+const CAMERA_CLEARANCE_PADDING = 2;
 
 /**
  * Bounded rigid breakup using cloned components from the destroyed craft.
@@ -63,7 +65,7 @@ export class ShipDebris {
     }
   }
 
-  update(dt: number, ground: GroundSampler | null): void {
+  update(dt: number, ground: GroundSampler | null, observer: Vector3 | null = null): void {
     for (let index = this.fragments.length - 1; index >= 0; index--) {
       const fragment = this.fragments[index];
       fragment.life -= dt;
@@ -78,6 +80,9 @@ export class ShipDebris {
       fragment.mesh.rotateOnWorldAxis(fragment.spinAxis, fragment.spinSpeed * dt);
 
       if (ground) this.resolveGround(fragment, ground, dt);
+      const clearance = fragment.radius * CAMERA_CLEARANCE_SCALE + CAMERA_CLEARANCE_PADDING;
+      fragment.mesh.visible = !observer ||
+        fragment.mesh.position.distanceToSquared(observer) > clearance * clearance;
       const fade = Math.min(1, fragment.life / Math.min(1.2, fragment.maxLife * 0.12));
       fragment.mesh.scale.copy(fragment.baseScale).multiplyScalar(fade);
     }

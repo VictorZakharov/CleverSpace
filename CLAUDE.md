@@ -48,8 +48,8 @@ WebGL resolution is adaptive and independent of CSS/HUD resolution. Preserve the
 workload across resize/fullscreen. Manual test stepping intentionally supplies no
 wall-clock sample, so visual baselines do not change with machine speed.
 Static procedural meshes are material-batched for rendering. Authored source parts
-remain on camera-disabled layer 31 for connectivity/debris; visual traversals skip
-`renderBatchSource`, while destruction skips `excludeFromDebris`. Repeated fog
+remain on camera-disabled layer 31 for connectivity/debris and carry the positive
+`shipDebrisSource` marker; visual traversals skip `renderBatchSource`. Repeated fog
 cards are instanced, not independent sprites. Planet surfaces separately merge
 immutable opaque decoration, retain destructible/test geometry, and expose static
 bodies through `SurfaceBodyIndex`; collision, LOS, and projectile code must query

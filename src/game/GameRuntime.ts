@@ -112,7 +112,7 @@ export abstract class GameRuntime extends GameInteractions {
       this.particles.update(dt);
       this.explosions.update(dt);
       this.playerShield.update(dt);
-      this.shipDebris.update(dt, this.surface);
+      this.shipDebris.update(dt, this.surface, this.chaseCam.camera.position);
       this.pulses.update(dt);
       this.warp.update(dt);
     }

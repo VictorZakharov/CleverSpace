@@ -80,6 +80,7 @@ actual regression check. Never commit generated PNGs.
 | damage-shake | deterministic heavy-hull-hit framing: positional/rotational kick + HUD flash |
 | asteroid-impact | live projectile entry point and surface-protruding asteroid impact FX |
 | ship-breakup | unobscured post-blast plate of cloned components from the actual destroyed Kestrel hull |
+| debris-camera-clearance | valid Kestrel fragments at review distance with a second near-lens breakup suppressed |
 | hud | full HUD: panels, jump spool + warp streaks, contract OFFER panel, quest tracker, merchant note |
 | targeting | hostile marker semantics: lock box + lead/range, red/amber/grey contacts, edge chevrons, radar, live fire |
 | distant-targeting | no-pursuit angular scan beyond 1.5 km: centred 1,847 m hostile selected over a nearer off-axis contact |
@@ -193,9 +194,11 @@ collidable children with finite HP, then destroys one child to prove it is gamep
 geometry rather than expiring decoration. It advances the field and requires every
 child to translate outward and rotate. Separately, it audits every live hull/turret
 kind: every fragment must retain a source-part identity and stay below hull-relative
-rod/oversize bounds even with excluded superweapon VFX forced visible. It then advances a
-player breakup through four seconds of artificial gravity against a deterministic
-terrain sampler to prove the parts fall and remain above the rendered ground.
+rod/oversize bounds, and a cloaked player may yield only positively tagged authored
+parts—never its shield or cloak shell. It also moves a real fragment through the
+camera-clearance boundary, then advances a player breakup through four seconds of
+artificial gravity against a deterministic terrain sampler to prove the parts fall
+and remain above the rendered ground.
 
 The asteroid-impact probe fires both a bolt and missile through the live projectile
 system into transformed instanced geometry. It requires a unit face normal and

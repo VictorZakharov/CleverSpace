@@ -195,12 +195,12 @@ same planet.
   noise-distorted 3D fireball lobes and spherical shock fronts, followed by
   increasingly dense curling smoke clouds that expand far beyond the hull, surround
   a ship flying through them, cool to soot, and fully dissipate.
-- Ship and turret breakup clones the largest actual mesh components from the destroyed
-  craft, including their geometry, proportions, transforms, and materials. These
-  bounded fragments omit transient weapon beams plus rod-like antenna/light trim;
-  hull-relative extent and offset caps reject a malformed part even when its aspect
-  ratio alone looks acceptable.
-  inherit craft velocity, tumble ballistically in space, and use
+- Ship and turret breakup clones the largest positively tagged authored components
+  from the destroyed craft, including their geometry, proportions, transforms, and
+  materials. Runtime shields, cloak shells, beams, and later VFX are outside that
+  source set; dimensional and hull-relative extent caps still reject rod-like trim.
+  Fragments inherit craft velocity, tumble ballistically in space, stay outside a
+  bounding-radius clearance around the chase camera, and use
   the existing `PlanetSurface.heightAt` terrain sampler for gravity, bounce, friction,
   and rest on planetary surfaces—without a second physics/world representation.
 - Asteroids never emit cosmetic rock stand-ins. A destroyed eligible rock is replaced

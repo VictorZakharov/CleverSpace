@@ -7,7 +7,7 @@ import {
   stageEnemyVariety,
   stageMissileWarning,
 } from './test-scenes/CombatTestScenes';
-import { stageShipBreakup } from './test-scenes/DebrisTestScenes';
+import { stageDebrisCameraClearance, stageShipBreakup } from './test-scenes/DebrisTestScenes';
 import { freezeCssAnimations } from './test-scenes/TestSceneShared';
 import {
   stageDamageShake,
@@ -84,6 +84,7 @@ const TEST_SCENES: Readonly<Record<string, (game: Game) => void>> = {
   'damage-shake': stageDamageShake,
   'asteroid-impact': stageAsteroidImpact,
   'ship-breakup': stageShipBreakup,
+  'debris-camera-clearance': stageDebrisCameraClearance,
   cave: stageCave,
   split: stageSplit,
   level: stageLevel,

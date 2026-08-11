@@ -9,21 +9,17 @@ export interface DebrisSourcePart {
 
 const worldScale = new Vector3();
 const dimensions = new Vector3();
-const sourcePosition = new Vector3();
-const partPosition = new Vector3();
 const MAX_FRAGMENT_ELONGATION = 6;
 
-/** Select only substantial visible hull components, never beams or trim rods. */
+/** Select only authored hull components, never runtime VFX or trim rods. */
 export function collectDebrisSourceParts(
   source: Object3D,
   hullRadius: number,
 ): DebrisSourcePart[] {
   const candidates: DebrisSourcePart[] = [];
-  source.getWorldPosition(sourcePosition);
   const maxExtent = Math.max(4, hullRadius * 2.2);
-  const maxOffset = Math.max(8, hullRadius * 1.8);
   source.traverse((object) => {
-    if (!(object instanceof Mesh) || !object.visible || excludedFromDebris(object)) return;
+    if (!(object instanceof Mesh) || object.userData.shipDebrisSource !== true) return;
     object.geometry.computeBoundingSphere();
     object.geometry.computeBoundingBox();
     object.getWorldScale(worldScale);
@@ -35,12 +31,10 @@ export function collectDebrisSourceParts(
     );
     const extents = [dimensions.x, dimensions.y, dimensions.z].sort((a, b) => b - a);
     const elongation = extents[0] / Math.max(0.001, extents[1]);
-    object.getWorldPosition(partPosition);
     if (
       !Number.isFinite(elongation) ||
       elongation > MAX_FRAGMENT_ELONGATION ||
-      extents[0] > maxExtent ||
-      partPosition.distanceTo(sourcePosition) > maxOffset
+      extents[0] > maxExtent
     ) return;
     const radius = object.geometry.boundingSphere?.radius ?? 0;
     candidates.push({
@@ -51,13 +45,4 @@ export function collectDebrisSourceParts(
     });
   });
   return candidates.sort((a, b) => b.size - a.size);
-}
-
-function excludedFromDebris(mesh: Mesh): boolean {
-  let current: Object3D | null = mesh;
-  while (current) {
-    if (current.userData.excludeFromDebris === true) return true;
-    current = current.parent;
-  }
-  return false;
 }

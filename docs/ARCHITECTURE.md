@@ -103,7 +103,7 @@ src/
     VolumetricSmoke.ts    one-draw-call 3D puff pool; delayed expansion/curl/cooling/dissipation
     ShieldFx.ts           expanding hit ripple clipped to the impacted shield hemisphere
     ShipDebris.ts         bounded clones of real destroyed-hull parts + terrain fall/bounce
-    ShipDebrisSources.ts  rejects transient VFX and hull-relative oversize/offset rods
+    ShipDebrisSources.ts  selects positively tagged, bounded authored hull parts
     textures.ts           shared deterministic glow/ring/irregular-cloud canvas textures
   ui/                     all DOM/CSS over the canvas; zero game logic
     Hud.ts                per-frame update(state) + imperative flashes/banners/comms
@@ -295,9 +295,9 @@ silently restoring an expensive native 4K target.
 
 Procedural ships are authored as connected primitive parts, then
 `StaticMeshBatching` fuses parts sharing a material for rendering. Originals stay
-visible to gameplay traversals on camera-disabled layer 31; batches carry
-`excludeFromDebris`/`excludeFromConnectivityAudit`, so destruction and structural
-tests still consume real components rather than one artificial combined shell.
+visible to gameplay traversals on camera-disabled layer 31 and carry
+`shipDebrisSource`; batches carry `excludeFromConnectivityAudit`, so destruction and
+structural tests still consume real components rather than one artificial combined shell.
 Target previews and cloak shells likewise traverse only the rendered copy. Cave
 shells use the same mechanism, and fog uses instanced camera-facing quads.
 
