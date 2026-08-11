@@ -17,7 +17,9 @@ export function alertSurfaceBaseDefenders(
   return alerted;
 }
 
-/** Restore exactly one hull point per second on a settled, cleared H pad. */
+const REPAIR_RATE = 2;
+
+/** Restore two hull points per second on a settled, cleared H pad. */
 export function repairPlayerOnClearedPad(
   dt: number,
   surface: PlanetSurface | null,
@@ -28,20 +30,27 @@ export function repairPlayerOnClearedPad(
   const baseIsLocked = (baseId: number): boolean =>
     enemies.some((enemy) => enemy.alive && enemy.surfaceBaseId === baseId) ||
     turrets.some((turret) => turret.alive && turret.surfaceBaseId === baseId);
-  surface?.updateRepairPadIndicators(dt, player.position, baseIsLocked);
+  let repairingBaseId: number | null = null;
   if (
-    !surface || !player.alive || player.hull >= player.hullMax ||
-    player.velocity.lengthSq() > 4 * 4
-  ) return;
-
-  const undersideY = player.position.y - player.radius;
-  for (const pad of surface.repairPads) {
-    const dx = player.position.x - pad.center.x;
-    const dz = player.position.z - pad.center.z;
-    if (dx * dx + dz * dz > pad.radius * pad.radius) continue;
-    if (Math.abs(undersideY - pad.center.y) > 1.4) continue;
-    if (baseIsLocked(pad.baseId)) return;
-    player.hull = Math.min(player.hullMax, player.hull + dt);
-    return;
+    surface && player.alive && player.hull < player.hullMax &&
+    player.velocity.lengthSq() <= 4 * 4
+  ) {
+    const undersideY = player.position.y - player.radius;
+    for (const pad of surface.repairPads) {
+      const dx = player.position.x - pad.center.x;
+      const dz = player.position.z - pad.center.z;
+      if (dx * dx + dz * dz > pad.radius * pad.radius) continue;
+      if (Math.abs(undersideY - pad.center.y) > 1.4) continue;
+      if (baseIsLocked(pad.baseId)) break;
+      repairingBaseId = pad.baseId;
+      player.hull = Math.min(player.hullMax, player.hull + dt * REPAIR_RATE);
+      break;
+    }
   }
+  surface?.updateRepairPadIndicators(
+    dt,
+    player.position,
+    baseIsLocked,
+    repairingBaseId,
+  );
 }

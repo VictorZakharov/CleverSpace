@@ -183,8 +183,9 @@ export function stageBase(game: Game): void {
   const center = base.center;
   game.player.object.position.set(center.x + 108, center.y + 22, center.z + 122);
   game.player.faceToward(center);
+  game.surface!.updateRepairPadIndicators(1 / 60, game.player.position, () => true);
   for (let frame = 0; frame < 60; frame++) {
-    game.surface!.updateRepairPadIndicators(1 / 60, game.player.position, () => true);
+    game.surface!.updateRepairPadIndicators(1 / 60, game.player.position, () => false, base.baseId);
   }
   const camera = game.chaseCam.camera;
   camera.position.set(center.x + 142, center.y + 42, center.z + 154);

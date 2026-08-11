@@ -54,10 +54,20 @@ export async function runPlanetaryBaseBehavior(page) {
     };
 
     const padIndicators = [];
+    const padActiveEffects = [];
+    const padRepairEffects = [];
     surface.group.traverse((object) => {
       if (object.userData.repairPadIndicator) padIndicators.push(object);
+      if (object.userData.repairPadActiveEffect) padActiveEffects.push(object);
+      if (object.userData.repairPadEffect) padRepairEffects.push(object);
     });
     const padIndicator = padIndicators.find(
+      (object) => object.userData.surfaceBaseId === repairPad.baseId,
+    );
+    const padRepairEffect = padRepairEffects.find(
+      (object) => object.userData.surfaceBaseId === repairPad.baseId,
+    );
+    const padActiveEffect = padActiveEffects.find(
       (object) => object.userData.surfaceBaseId === repairPad.baseId,
     );
     const lockedIndicatorInitiallyVisible = !!padIndicator?.visible;
@@ -80,6 +90,8 @@ export async function runPlanetaryBaseBehavior(page) {
     game.player.hull = game.player.hullMax - 10;
     game.updateRepairPads(2);
     const repairLocked = Math.abs(game.player.hull - (game.player.hullMax - 10)) < 1e-6;
+    const lockedActiveEffectHidden = padActiveEffect?.visible === false;
+    const lockedRepairEffectHidden = padRepairEffect?.visible === false;
     const localActors = actors.filter((actor) => actor.surfaceBaseId === repairPad.baseId);
     const remoteActors = actors.filter(
       (actor) => actor.surfaceBaseId !== null && actor.surfaceBaseId !== repairPad.baseId,
@@ -87,7 +99,22 @@ export async function runPlanetaryBaseBehavior(page) {
     for (const actor of localActors) actor.alive = false;
     game.updateRepairPads(2.5);
     const repairAmount = game.player.hull - (game.player.hullMax - 10);
-    const clearedIndicatorHidden = padIndicator?.visible === false;
+    const unlockedIndicatorVisible = padIndicator?.visible === true &&
+      padIndicator?.userData.status === 'unlocked';
+    const unlockedActiveEffectVisible = padActiveEffect?.visible === true &&
+      padActiveEffect?.userData.active === true;
+    const activeLightCount = padActiveEffect?.children.length ?? 0;
+    const repairEffectVisible = padRepairEffect?.visible === true &&
+      padRepairEffect?.userData.active === true;
+    const repairMoteCount = padRepairEffect?.children.length ?? 0;
+    game.player.hull = game.player.hullMax;
+    for (let frame = 0; frame < 20; frame++) game.updateRepairPads(1 / 60);
+    const repairEffectStopsAtFullHull = padRepairEffect?.visible === false;
+    const unlockedIndicatorHeldForThreeSeconds = padIndicator?.visible === true;
+    for (let frame = 0; frame < 60; frame++) game.updateRepairPads(1 / 60);
+    const unlockedIndicatorFaded = padIndicator?.visible === false &&
+      padIndicator?.material.opacity === 0;
+    const activeEffectPersistsAfterNotice = padActiveEffect?.visible === true;
     const remoteBaseIgnored = remoteActors.some((actor) => actor.alive);
     actors.forEach((actor, index) => { actor.alive = aliveStates[index]; });
 
@@ -173,19 +200,31 @@ export async function runPlanetaryBaseBehavior(page) {
       hoverTurretCount,
       repairPadCount: surface.repairPads.length,
       repairPadIndicatorCount: padIndicators.length,
+      repairPadActiveEffectCount: padActiveEffects.length,
+      repairPadEffectCount: padRepairEffects.length,
       baseCount: surface.baseLandmarks.length,
       parkedDefenderCount: initiallyParked.length,
       localParkedBefore,
       remoteParkedBefore,
       repairLocked,
       repairAmount,
+      lockedActiveEffectHidden,
+      lockedRepairEffectHidden,
+      unlockedActiveEffectVisible,
+      activeLightCount,
+      activeEffectPersistsAfterNotice,
+      repairEffectVisible,
+      repairMoteCount,
+      repairEffectStopsAtFullHull,
       lockedIndicatorInitiallyVisible,
       compactIndicatorWidth,
       expandedIndicatorWidth,
       collapsedIndicatorWidth,
       nearbyMessageVisible,
       nearbyMessageCollapsed,
-      clearedIndicatorHidden,
+      unlockedIndicatorVisible,
+      unlockedIndicatorHeldForThreeSeconds,
+      unlockedIndicatorFaded,
       remoteBaseIgnored,
       crawlerFired,
       localBaseAlerted,
@@ -194,7 +233,7 @@ export async function runPlanetaryBaseBehavior(page) {
       firstBurstPhases: new Set(phases.map((phase) => phase.toFixed(3))).size,
       corkscrew: salvoSnapshot.length === 8 && salvoSnapshot.every(
         (shot) => shot.spiral && !shot.homing && !shot.hasTarget &&
-          Math.abs(shot.speed - 150) < 0.01,
+          shot.trail && Math.abs(shot.speed - 150) < 0.01,
       ),
       rocketVertexCount,
       spiralDeviation,
@@ -209,14 +248,21 @@ export function planetaryBaseBehaviorFailed(result) {
     (result.hoverCount === 1 && result.hoverTurretCount < 4) ||
     result.repairPadCount !== result.baseCount ||
     result.repairPadIndicatorCount !== result.repairPadCount ||
+    result.repairPadActiveEffectCount !== result.repairPadCount ||
+    result.repairPadEffectCount !== result.repairPadCount ||
     result.parkedDefenderCount < result.baseCount || result.localParkedBefore < 1 ||
     result.remoteParkedBefore < 1 || !result.repairLocked ||
-    Math.abs(result.repairAmount - 2.5) > 0.01 || !result.remoteBaseIgnored ||
+    Math.abs(result.repairAmount - 5) > 0.01 || !result.remoteBaseIgnored ||
+    !result.lockedActiveEffectHidden || !result.lockedRepairEffectHidden ||
+    !result.unlockedActiveEffectVisible || result.activeLightCount !== 8 ||
+    !result.activeEffectPersistsAfterNotice || !result.repairEffectVisible ||
+    result.repairMoteCount !== 6 || !result.repairEffectStopsAtFullHull ||
     !result.lockedIndicatorInitiallyVisible || result.compactIndicatorWidth < 4 ||
     result.expandedIndicatorWidth < result.compactIndicatorWidth * 3 ||
     Math.abs(result.collapsedIndicatorWidth - result.compactIndicatorWidth) > 0.05 ||
     !result.nearbyMessageVisible || !result.nearbyMessageCollapsed ||
-    !result.clearedIndicatorHidden ||
+    !result.unlockedIndicatorVisible || !result.unlockedIndicatorHeldForThreeSeconds ||
+    !result.unlockedIndicatorFaded ||
     !result.crawlerFired || !result.localBaseAlerted || !result.remoteBaseStayedDormant ||
     !result.turretAlertLaunchedGarrison || result.firstBurstPhases !== 8 ||
     !result.corkscrew || result.rocketVertexCount < 100 || result.spiralDeviation < 0.8;

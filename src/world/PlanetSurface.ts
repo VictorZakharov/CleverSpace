@@ -603,8 +603,9 @@ export class PlanetSurface {
     dt: number,
     playerPosition: Vector3,
     isLocked: (baseId: number) => boolean,
+    repairingBaseId: number | null = null,
   ): void {
-    this.repairPadIndicators.update(dt, playerPosition, isLocked);
+    this.repairPadIndicators.update(dt, playerPosition, isLocked, repairingBaseId);
   }
 
   /** Broadphase candidates for a swept projectile or line-of-sight segment. */

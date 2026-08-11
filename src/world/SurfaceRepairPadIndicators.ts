@@ -1,14 +1,20 @@
 import {
   CanvasTexture,
   Group,
-  LinearFilter,
   MathUtils,
   Sprite,
   SpriteMaterial,
-  SRGBColorSpace,
   Vector3,
 } from 'three';
 import type { SurfaceBaseId, SurfaceRepairPad } from './PlanetSurfaceStructures';
+import {
+  drawActivePadLight,
+  drawLockedPadPanel,
+  drawRepairMote,
+  drawUnlockedPadPanel,
+  makeAdditiveSpriteMaterial,
+  makePanelTexture,
+} from './SurfaceRepairPadTextures';
 
 const TEXTURE_WIDTH = 512;
 const TEXTURE_HEIGHT = 112;
@@ -18,13 +24,23 @@ const FULL_WIDTH = HEIGHT * TEXTURE_WIDTH / TEXTURE_HEIGHT;
 const COMPACT_FRACTION = ICON_WIDTH / TEXTURE_WIDTH;
 const NEAR_DISTANCE = 155;
 const HOVER_HEIGHT = 9;
+const UNLOCK_HOLD_SECONDS = 3;
+const UNLOCK_FADE_SECONDS = 0.65;
 
 interface PadIndicator {
   readonly pad: SurfaceRepairPad;
   readonly sprite: Sprite;
-  readonly texture: CanvasTexture;
+  readonly material: SpriteMaterial;
+  readonly lockedTexture: CanvasTexture;
+  readonly unlockedTexture: CanvasTexture;
+  readonly activeEffect: Group;
+  readonly activeLights: Sprite[];
+  readonly repairEffect: Group;
+  readonly repairMotes: Sprite[];
   readonly bobPhase: number;
   expansion: number;
+  wasLocked: boolean | null;
+  unlockAge: number | null;
 }
 
 /** Camera-facing repair-pad locks that reveal their warning at close range. */
@@ -34,17 +50,16 @@ export class SurfaceRepairPadIndicators {
   private elapsed = 0;
 
   constructor(root: Group, pads: readonly SurfaceRepairPad[]) {
-    const canvas = drawLockedPadPanel();
+    const lockedCanvas = drawLockedPadPanel();
+    const unlockedCanvas = drawUnlockedPadPanel();
+    const repairMaterial = makeAdditiveSpriteMaterial(drawRepairMote());
+    const activeMaterial = makeAdditiveSpriteMaterial(drawActivePadLight());
     this.indicators = pads.map((pad, index) => {
-      const texture = new CanvasTexture(canvas);
-      texture.colorSpace = SRGBColorSpace;
-      texture.minFilter = LinearFilter;
-      texture.magFilter = LinearFilter;
-      texture.repeat.set(COMPACT_FRACTION, 1);
-      texture.offset.set(1 - COMPACT_FRACTION, 0);
+      const lockedTexture = makePanelTexture(lockedCanvas, COMPACT_FRACTION);
+      const unlockedTexture = makePanelTexture(unlockedCanvas, COMPACT_FRACTION);
 
       const material = new SpriteMaterial({
-        map: texture,
+        map: lockedTexture,
         transparent: true,
         depthTest: false,
         depthWrite: false,
@@ -61,7 +76,53 @@ export class SurfaceRepairPadIndicators {
       sprite.userData.expansion = 0;
       sprite.userData.messageVisible = false;
       root.add(sprite);
-      return { pad, sprite, texture, bobPhase: index * 2.1, expansion: 0 };
+
+      const activeEffect = new Group();
+      activeEffect.name = `repair-pad-online-${pad.baseId}`;
+      activeEffect.position.copy(pad.center);
+      activeEffect.visible = false;
+      activeEffect.userData.repairPadActiveEffect = true;
+      activeEffect.userData.surfaceBaseId = pad.baseId;
+      activeEffect.userData.active = false;
+      const activeLights = Array.from({ length: 8 }, (_, lightIndex) => {
+        const light = new Sprite(activeMaterial);
+        light.name = `repair-pad-online-light-${lightIndex}`;
+        light.renderOrder = 78;
+        activeEffect.add(light);
+        return light;
+      });
+      root.add(activeEffect);
+
+      const repairEffect = new Group();
+      repairEffect.name = `repair-pad-effect-${pad.baseId}`;
+      repairEffect.position.copy(pad.center);
+      repairEffect.visible = false;
+      repairEffect.userData.repairPadEffect = true;
+      repairEffect.userData.surfaceBaseId = pad.baseId;
+      repairEffect.userData.active = false;
+      const repairMotes = Array.from({ length: 6 }, (_, moteIndex) => {
+        const mote = new Sprite(repairMaterial);
+        mote.name = `repair-mote-${moteIndex}`;
+        mote.renderOrder = 79;
+        repairEffect.add(mote);
+        return mote;
+      });
+      root.add(repairEffect);
+      return {
+        pad,
+        sprite,
+        material,
+        lockedTexture,
+        unlockedTexture,
+        activeEffect,
+        activeLights,
+        repairEffect,
+        repairMotes,
+        bobPhase: index * 2.1,
+        expansion: 0,
+        wasLocked: null,
+        unlockAge: null,
+      };
     });
     this.count = this.indicators.length;
   }
@@ -70,91 +131,98 @@ export class SurfaceRepairPadIndicators {
     dt: number,
     playerPosition: Vector3,
     isLocked: (baseId: SurfaceBaseId) => boolean,
+    repairingBaseId: SurfaceBaseId | null,
   ): void {
     this.elapsed += dt;
     for (const indicator of this.indicators) {
       const locked = isLocked(indicator.pad.baseId);
-      const nearby = locked &&
-        playerPosition.distanceToSquared(indicator.pad.center) <= NEAR_DISTANCE ** 2;
-      indicator.expansion = MathUtils.damp(
-        indicator.expansion,
-        nearby ? 1 : 0,
-        7.5,
-        dt,
-      );
-      if (Math.abs(indicator.expansion - (nearby ? 1 : 0)) < 0.001) {
-        indicator.expansion = nearby ? 1 : 0;
+      const justUnlocked = indicator.wasLocked === true && !locked;
+      indicator.wasLocked = locked;
+      if (locked) {
+        indicator.unlockAge = null;
+        if (indicator.material.map !== indicator.lockedTexture) {
+          indicator.material.map = indicator.lockedTexture;
+          indicator.material.needsUpdate = true;
+        }
+        indicator.material.opacity = 1;
+        const nearby =
+          playerPosition.distanceToSquared(indicator.pad.center) <= NEAR_DISTANCE ** 2;
+        indicator.expansion = MathUtils.damp(
+          indicator.expansion,
+          nearby ? 1 : 0,
+          7.5,
+          dt,
+        );
+        if (Math.abs(indicator.expansion - (nearby ? 1 : 0)) < 0.001) {
+          indicator.expansion = nearby ? 1 : 0;
+        }
+        const reveal = MathUtils.lerp(COMPACT_FRACTION, 1, indicator.expansion);
+        indicator.lockedTexture.repeat.x = reveal;
+        indicator.lockedTexture.offset.x = 1 - reveal;
+        indicator.sprite.scale.set(FULL_WIDTH * reveal, HEIGHT, 1);
+        indicator.sprite.visible = true;
+        indicator.sprite.userData.status = 'locked';
+        indicator.sprite.userData.messageVisible = indicator.expansion > 0.9;
+      } else if (justUnlocked || indicator.unlockAge !== null) {
+        if (justUnlocked) {
+          indicator.unlockAge = 0;
+          indicator.material.map = indicator.unlockedTexture;
+          indicator.material.needsUpdate = true;
+        }
+        indicator.unlockAge = (indicator.unlockAge ?? 0) + dt;
+        indicator.expansion = MathUtils.damp(indicator.expansion, 1, 8, dt);
+        const fadeAge = indicator.unlockAge - UNLOCK_HOLD_SECONDS;
+        indicator.material.opacity = fadeAge <= 0
+          ? 1
+          : Math.max(0, 1 - fadeAge / UNLOCK_FADE_SECONDS);
+        indicator.unlockedTexture.repeat.set(1, 1);
+        indicator.unlockedTexture.offset.set(0, 0);
+        const pulse = indicator.unlockAge < 0.45
+          ? 1 + Math.sin(indicator.unlockAge / 0.45 * Math.PI) * 0.09
+          : 1;
+        indicator.sprite.scale.set(FULL_WIDTH * indicator.expansion, HEIGHT * pulse, 1);
+        indicator.sprite.visible = indicator.material.opacity > 0;
+        indicator.sprite.userData.status = 'unlocked';
+        indicator.sprite.userData.messageVisible = false;
+        if (!indicator.sprite.visible) indicator.unlockAge = null;
+      } else {
+        indicator.material.opacity = 0;
+        indicator.sprite.visible = false;
+        indicator.sprite.userData.status = 'hidden';
+        indicator.sprite.userData.messageVisible = false;
       }
-
-      const reveal = MathUtils.lerp(COMPACT_FRACTION, 1, indicator.expansion);
-      indicator.texture.repeat.x = reveal;
-      indicator.texture.offset.x = 1 - reveal;
-      indicator.sprite.scale.x = FULL_WIDTH * reveal;
       indicator.sprite.position.y = indicator.pad.center.y + HOVER_HEIGHT +
         Math.sin(this.elapsed * 1.8 + indicator.bobPhase) * 0.35;
-      indicator.sprite.visible = locked;
       indicator.sprite.userData.expansion = indicator.expansion;
-      indicator.sprite.userData.messageVisible = indicator.expansion > 0.9;
+
+      indicator.activeEffect.visible = !locked;
+      indicator.activeEffect.userData.active = !locked;
+      if (!locked) {
+        indicator.activeLights.forEach((light, index) => {
+          const angle = this.elapsed * 0.38 + index / indicator.activeLights.length * Math.PI * 2;
+          const chase = 0.5 + 0.5 * Math.sin(this.elapsed * 5.2 - index * 0.9);
+          light.position.set(Math.cos(angle) * 7.35, 0.48, Math.sin(angle) * 7.35);
+          const size = 0.7 + chase * 0.65;
+          light.scale.set(size, size, 1);
+        });
+      }
+
+      const repairing = repairingBaseId === indicator.pad.baseId;
+      indicator.repairEffect.visible = repairing;
+      indicator.repairEffect.userData.active = repairing;
+      if (!repairing) continue;
+      indicator.repairMotes.forEach((mote, index) => {
+        const phase = (this.elapsed * 0.42 + index / indicator.repairMotes.length) % 1;
+        const angle = this.elapsed * 0.85 + index * 2.4;
+        const radius = 3.1 + Math.sin(this.elapsed * 1.7 + index) * 0.55;
+        mote.position.set(
+          Math.cos(angle) * radius,
+          1.1 + phase * 8,
+          Math.sin(angle) * radius,
+        );
+        const size = 1.25 + Math.sin(phase * Math.PI) * 0.7;
+        mote.scale.set(size, size, 1);
+      });
     }
   }
-}
-
-function drawLockedPadPanel(): HTMLCanvasElement {
-  const canvas = document.createElement('canvas');
-  canvas.width = TEXTURE_WIDTH;
-  canvas.height = TEXTURE_HEIGHT;
-  const context = canvas.getContext('2d')!;
-
-  roundedRect(context, 3, 3, 506, 106, 18);
-  context.fillStyle = 'rgba(6, 13, 18, 0.9)';
-  context.fill();
-  context.lineWidth = 4;
-  context.strokeStyle = 'rgba(255, 84, 70, 0.95)';
-  context.stroke();
-
-  context.fillStyle = 'rgba(255, 84, 70, 0.16)';
-  context.fillRect(TEXTURE_WIDTH - ICON_WIDTH, 7, ICON_WIDTH - 7, 98);
-  context.fillStyle = '#ff5b4d';
-  context.font = '700 34px "Segoe UI", sans-serif';
-  context.textAlign = 'center';
-  context.textBaseline = 'middle';
-  context.fillText('ENEMIES NEARBY', 202, 57);
-
-  const lockX = 456;
-  context.lineWidth = 8;
-  context.lineCap = 'round';
-  context.strokeStyle = '#ffb17a';
-  context.beginPath();
-  context.arc(lockX, 47, 21, Math.PI, 0);
-  context.stroke();
-  roundedRect(context, lockX - 30, 45, 60, 47, 9);
-  context.fillStyle = '#ff5b4d';
-  context.fill();
-  context.fillStyle = '#160b0b';
-  context.beginPath();
-  context.arc(lockX, 66, 5, 0, Math.PI * 2);
-  context.fill();
-  context.fillRect(lockX - 2.5, 66, 5, 12);
-  return canvas;
-}
-
-function roundedRect(
-  context: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  width: number,
-  height: number,
-  radius: number,
-): void {
-  context.beginPath();
-  context.moveTo(x + radius, y);
-  context.lineTo(x + width - radius, y);
-  context.quadraticCurveTo(x + width, y, x + width, y + radius);
-  context.lineTo(x + width, y + height - radius);
-  context.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
-  context.lineTo(x + radius, y + height);
-  context.quadraticCurveTo(x, y + height, x, y + height - radius);
-  context.lineTo(x, y + radius);
-  context.quadraticCurveTo(x, y, x + radius, y);
-  context.closePath();
 }

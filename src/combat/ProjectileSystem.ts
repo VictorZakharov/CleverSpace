@@ -58,6 +58,7 @@ export interface ProjectileSnapshot {
   hasTarget: boolean;
   speed: number;
   spiral: boolean;
+  trail: boolean;
 }
 
 interface Projectile {
@@ -98,6 +99,7 @@ const closestNormal = new Vector3();
 const bestNormal = new Vector3();
 const lookPoint = new Vector3();
 const steer = new Vector3();
+const trailPosition = new Vector3();
 const trailVel = new Vector3();
 const threatToPlayer = new Vector3();
 const stepDelta = new Vector3();
@@ -165,6 +167,12 @@ function buildSalvoRocketGeometry(): BufferGeometry {
         .rotateX(Math.PI / 2)
         .translate(0, 0, -0.48),
       new Color(0xff4b10).multiplyScalar(2.4),
+    ),
+    vertexColored(
+      new ConeGeometry(0.23, 0.72, 8)
+        .rotateX(-Math.PI / 2)
+        .translate(0, 0, -0.91),
+      new Color(0xff7a18).multiplyScalar(2.8),
     ),
   ];
   const merged = mergeGeometries(parts, false);
@@ -299,7 +307,7 @@ export class ProjectileSystem {
       brightness: mode === 'salvo' ? 1 : 2.8,
       width: mode === 'salvo' ? 1.3 : 0.42,
       length: mode === 'salvo' ? 5 : 2.2,
-      trailSize: mode === 'salvo' ? 0 : 1.6,
+      trailSize: mode === 'salvo' ? 0.9 : 1.6,
       spiralPhase: mode === 'salvo' ? spiralPhase : undefined,
       salvoStyle: mode === 'salvo',
     });
@@ -349,7 +357,7 @@ export class ProjectileSystem {
     p.velocity.copy(direction).normalize().multiplyScalar(def.speed);
     if (def.salvoStyle) p.material.color.setRGB(1, 1, 1);
     else p.material.color.copy(def.color).multiplyScalar(def.brightness ?? 2.8);
-    p.trailColor.copy(def.color);
+    p.trailColor.copy(def.color).multiplyScalar(def.salvoStyle ? 0.9 : 1);
     p.mesh.geometry = def.salvoStyle ? this.salvoRocketBody : this.missileBody;
     p.mesh.visible = true;
     p.mesh.position.copy(position);
@@ -417,14 +425,22 @@ export class ProjectileSystem {
         // Fixed-rate exhaust keeps missile cost stable across frame rates.
         p.trailTimer -= dt;
         if (p.trailTimer <= 0) {
-          p.trailTimer += 0.035;
+          p.trailTimer += p.spiral ? 0.025 : 0.035;
+          const speed = p.velocity.length();
+          trailPosition.copy(p.mesh.position);
+          if (speed > 1e-5) {
+            trailPosition.addScaledVector(
+              p.velocity,
+              -(p.spiral ? 5.2 : 1.1) / speed,
+            );
+          }
           trailVel.set(0, 0, 0);
           this.particles.spawn({
-            position: p.mesh.position,
+            position: trailPosition,
             velocity: trailVel,
             color: p.trailColor,
             size: p.trailSize,
-            life: 0.45,
+            life: p.spiral ? 0.24 : 0.45,
           });
         }
       }
@@ -624,6 +640,7 @@ export class ProjectileSystem {
         hasTarget: p.target !== null,
         speed: p.velocity.length(),
         spiral: p.spiral,
+        trail: p.trailSize > 0,
       }));
   }
 
