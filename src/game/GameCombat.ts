@@ -110,7 +110,11 @@ export class GameCombat {
     const host = this.host;
     if (!this.hasLineOfSight(enemy.position, host.player.position)) return;
     enemy.forward(fireDirection);
+    const singleHomingMuzzle = enemy.rocketMode === 'homing'
+      ? enemy.nextRocketGunpoint()
+      : null;
     for (const gunpoint of enemy.gunpoints) {
+      if (singleHomingMuzzle && gunpoint !== singleHomingMuzzle) continue;
       fireMuzzle.copy(gunpoint).applyQuaternion(enemy.object.quaternion).add(enemy.position);
       if (enemy.rocketMode) {
         host.projectiles.spawnEnemyRocket(
@@ -210,6 +214,10 @@ export class GameCombat {
         host.audio.hitShield();
       }
     } else if (hit.ship instanceof CapitalShip) {
+      if (hit.faction === 'player' && hit.damage > 0 && !result.died) {
+        hit.ship.wakeForAttack();
+        this.armCapitalHomingRetaliation(hit.ship);
+      }
       host.hud.flashHitmarker(result.died);
       if (result.died) this.killCapital(hit.ship);
       else showProjectileImpact(host.explosions, hit.point, hit.wasMissile, 1.3, 0.4);
@@ -218,6 +226,23 @@ export class GameCombat {
       if (result.died) this.killNeutral(hit.ship);
       else showProjectileImpact(host.explosions, hit.point, hit.wasMissile, 1.1, 0.4);
     }
+  }
+
+  private armCapitalHomingRetaliation(capital: CapitalShip): void {
+    const direction = fireDirection.copy(this.host.player.position)
+      .sub(capital.position)
+      .normalize();
+    let selected: Turret | null = null;
+    let bestFacing = -Infinity;
+    for (const turret of this.host.capitalTurrets) {
+      turret.cancelHomingRetaliation();
+      if (!turret.alive || turret.weapon !== 'homing' || !turret.mountNormal) continue;
+      const facing = turret.mountNormal.dot(direction);
+      if (facing <= bestFacing + 1e-6) continue;
+      selected = turret;
+      bestFacing = facing;
+    }
+    selected?.armHomingRetaliation();
   }
 
   private killCapital(capital: CapitalShip): void {
@@ -329,7 +354,9 @@ export class GameCombat {
 
   turretFire(turret: Turret): void {
     const host = this.host;
-    if (!this.hasLineOfSight(turret.position, host.player.position)) return;
+    fireMuzzle.copy(turret.position);
+    if (turret.mountNormal) fireMuzzle.addScaledVector(turret.mountNormal, 3);
+    if (!this.hasLineOfSight(fireMuzzle, host.player.position)) return;
     turret.forward(fireDirection);
     for (const gunpoint of turret.gunpoints) {
       fireMuzzle.copy(gunpoint).applyQuaternion(turret.object.quaternion).add(turret.position);

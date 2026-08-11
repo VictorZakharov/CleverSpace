@@ -56,6 +56,13 @@ export abstract class GameRuntime extends GameInteractions {
         runtime.capital.position,
         runtime.player.position,
       ),
+      syncMounts: () => {
+        const capital = runtime.capital;
+        if (!capital) return;
+        for (const turret of runtime.capitalTurrets) {
+          turret.syncCapitalMount(capital.position, capital.object.quaternion, capital.velocity);
+        }
+      },
       onCharge: () => {
         runtime.hud.showBanner('Capital annihilator charging');
         runtime.audio.capitalCharge();
@@ -404,6 +411,10 @@ export abstract class GameRuntime extends GameInteractions {
       );
       if (this.surface) this.combat.resolveEnemySurfaceCollision(enemy);
     }
+    this.capital?.update(dt, this.capitalBeamContext);
+    if (!playerVisible) {
+      for (const turret of this.capitalTurrets) turret.cancelHomingRetaliation();
+    }
     for (const turret of this.turrets) {
       turretLosOrigin.copy(turret.position);
       if (turret.mountNormal) turretLosOrigin.addScaledVector(turret.mountNormal, 3);
@@ -419,7 +430,6 @@ export abstract class GameRuntime extends GameInteractions {
       );
     }
     for (const neutral of this.neutrals) neutral.update(dt);
-    this.capital?.update(dt, this.capitalBeamContext);
   }
 
   private updateMissileWarning(): void {

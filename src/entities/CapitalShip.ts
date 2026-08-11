@@ -4,6 +4,7 @@ import {
   CylinderGeometry,
   DoubleSide,
   Group,
+  Matrix4,
   Mesh,
   MeshBasicMaterial,
   Quaternion,
@@ -20,6 +21,9 @@ export const CAPITAL_BEAM_ACTIVATION_RANGE = 500;
 export const CAPITAL_BEAM_RANGE = 1400;
 export const CAPITAL_BEAM_RADIUS = 7;
 export const CAPITAL_BEAM_HALF_ANGLE = Math.PI / 14; // 12.9 degrees
+export const CAPITAL_PURSUIT_SPEED = 12;
+export const CAPITAL_PURSUIT_TURN_RATE = 0.12;
+export const CAPITAL_PURSUIT_STANDOFF = 320;
 
 export interface CapitalTurretMount {
   position: Vector3;
@@ -38,6 +42,8 @@ export interface CapitalBeamContext {
   player: Ship;
   playerVisible: boolean;
   canSeePlayer(): boolean;
+  /** Keep separately simulated batteries attached after carrier motion. */
+  syncMounts?(): void;
   onCharge(): void;
   /** Returns the distance reached before the first absorbing obstacle. */
   onFire(shot: CapitalBeamShot): number;
@@ -56,9 +62,21 @@ const localAim = new Vector3();
 const localRight = new Vector3(1, 0, 0);
 const inverseCapital = new Quaternion();
 const aimQuaternion = new Quaternion();
+const pursuitDirection = new Vector3();
+const pursuitDeckUp = new Vector3();
+const pursuitPlaneUp = new Vector3();
+const pursuitForward = new Vector3();
+const pursuitDesiredUp = new Vector3();
+const pursuitCurrentForward = new Vector3();
+const pursuitQuaternion = new Quaternion();
+const pursuitMatrix = new Matrix4();
+const pursuitOrigin = new Vector3();
+const PURSUIT_EXPOSURE_ANGLE = Math.PI / 18;
+const PURSUIT_EXPOSURE_SIN = Math.sin(PURSUIT_EXPOSURE_ANGLE);
+const PURSUIT_EXPOSURE_COS = Math.cos(PURSUIT_EXPOSURE_ANGLE);
 
 /**
- * A Vigil capital ship: stationary carrier, twelve independently targetable
+ * A Vigil capital ship: slow-to-wake carrier, twelve independently targetable
  * top/bottom batteries, and a committed frontal superweapon. Once charging,
  * the ray always fires after two seconds at the last visible player bearing,
  * clamped to its physical traverse cone.
@@ -90,6 +108,7 @@ export class CapitalShip extends Ship {
   private chargeLeft = 0;
   private firingLeft = 0;
   private cooldown = 5;
+  private awake = false;
   private visualTime = 0;
   private guideLength = CAPITAL_BEAM_RANGE;
 
@@ -151,7 +170,19 @@ export class CapitalShip extends Ship {
     return this.guideLength;
   }
 
+  get isAwake(): boolean {
+    return this.awake;
+  }
+
+  /** Wake pursuit after surviving player damage; weapons retain their own rules. */
+  wakeForAttack(): void {
+    if (!this.alive) return;
+    this.awake = true;
+  }
+
   update(dt: number, context?: CapitalBeamContext): void {
+    if (this.awake && context) this.updatePursuit(dt, context);
+    context?.syncMounts?.();
     this.visualTime += dt;
     for (const beam of [this.chargeGuide, this.beamHalo, this.beamCore]) {
       (beam.material as ShaderMaterial).uniforms.uTime.value = this.visualTime;
@@ -180,6 +211,63 @@ export class CapitalShip extends Ship {
       }
     }
     this.updateCommon(dt);
+  }
+
+  private updatePursuit(dt: number, context: CapitalBeamContext): void {
+    const player = context.player;
+    if (!player.alive || !context.playerVisible) {
+      this.awake = false;
+      this.velocity.set(0, 0, 0);
+      this.throttle = 0.25;
+      return;
+    }
+    const distance = pursuitDirection.copy(player.position).sub(this.position).length();
+    if (distance < 1e-5) return;
+    pursuitDirection.divideScalar(distance);
+
+    pursuitDeckUp.set(0, 1, 0).applyQuaternion(this.object.quaternion);
+    const deckSign = pursuitDeckUp.dot(pursuitDirection) >= -1e-6 ? 1 : -1;
+    pursuitDeckUp.multiplyScalar(deckSign);
+    pursuitPlaneUp.copy(pursuitDeckUp).addScaledVector(
+      pursuitDirection,
+      -pursuitDeckUp.dot(pursuitDirection),
+    );
+    if (pursuitPlaneUp.lengthSq() < 1e-5) {
+      pursuitPlaneUp.set(0, 1, 0);
+      if (Math.abs(pursuitPlaneUp.dot(pursuitDirection)) > 0.9) {
+        pursuitPlaneUp.set(1, 0, 0);
+      }
+      pursuitPlaneUp.addScaledVector(
+        pursuitDirection,
+        -pursuitPlaneUp.dot(pursuitDirection),
+      );
+    }
+    pursuitPlaneUp.normalize();
+    pursuitForward.copy(pursuitDirection)
+      .multiplyScalar(PURSUIT_EXPOSURE_COS)
+      .addScaledVector(pursuitPlaneUp, -PURSUIT_EXPOSURE_SIN)
+      .normalize();
+    pursuitDesiredUp.copy(pursuitPlaneUp)
+      .multiplyScalar(PURSUIT_EXPOSURE_COS)
+      .addScaledVector(pursuitDirection, PURSUIT_EXPOSURE_SIN)
+      .multiplyScalar(deckSign)
+      .normalize();
+    pursuitQuaternion.setFromRotationMatrix(
+      pursuitMatrix.lookAt(pursuitOrigin, pursuitForward, pursuitDesiredUp),
+    );
+    this.object.quaternion.rotateTowards(pursuitQuaternion, CAPITAL_PURSUIT_TURN_RATE * dt);
+
+    this.forward(pursuitCurrentForward);
+    const alignment = Math.max(0, pursuitCurrentForward.dot(pursuitDirection));
+    const desiredSpeed = distance > CAPITAL_PURSUIT_STANDOFF && context.canSeePlayer()
+      ? CAPITAL_PURSUIT_SPEED * alignment
+      : 0;
+    this.velocity.lerp(
+      pursuitCurrentForward.multiplyScalar(desiredSpeed),
+      1 - Math.exp(-0.7 * dt),
+    );
+    this.position.addScaledVector(this.velocity, dt);
+    this.throttle = 0.25 + 0.75 * Math.min(1, this.velocity.length() / CAPITAL_PURSUIT_SPEED);
   }
 
   private canBeginCharge(context: CapitalBeamContext): boolean {

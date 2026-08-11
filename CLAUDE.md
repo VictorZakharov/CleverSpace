@@ -98,6 +98,9 @@ Per-hull seeker issuance/fabrication belongs in `PlayerShipDef`: Aegis starts at
 16 and regenerates one every 10 seconds; Kestrel starts at 8 with no regeneration.
 Sector and orbit arrivals face the equal-weight mean contact bearing; exclude
 capital-mounted turrets so one carrier does not count as thirteen contacts.
+Carrier batteries remain independent damageable ships, but an awake carrier moves;
+every carrier step must synchronize each surviving mount's position, rotation delta,
+outward traverse normal, and inherited velocity before batteries evaluate LOS.
 Physical and touch input converge in `core/Input.ts`; gameplay systems must read
 the shared actions/axes rather than DOM gestures. `TouchControls` owns pointer
 capture and virtual bindings. Coarse-pointer hangars keep native DOM active instead

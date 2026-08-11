@@ -98,6 +98,9 @@ export const MISSILE = {
 
 export type EnemyRocketMode = 'homing' | 'fast';
 
+/** Tracking ordnance fires at half cadence across enemy ships and batteries. */
+export const ENEMY_HOMING_COOLDOWN_MULTIPLIER = 2;
+
 /** Vigil rotary cannon: low per-bolt damage, player-autogun cadence. */
 export const ENEMY_AUTOGUN = {
   fireCooldown: 0.055,

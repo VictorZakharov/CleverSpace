@@ -211,6 +211,7 @@ export function collectSmokeFailures(results) {
   ) failures.push('targeting policy');
   if (
     !enemyWeaponVariety.seekerAt1050m ||
+    !enemyWeaponVariety.homingBalance ||
     !enemyWeaponVariety.rotaryShip ||
     !enemyWeaponVariety.rotaryBattery
   ) failures.push('enemy weapon variety');
@@ -265,6 +266,7 @@ export function collectSmokeFailures(results) {
     capitalSystems.bottomShots !== 0 ||
     !capitalSystems.rejectedFromSide ||
     !capitalSystems.rejectedBeyondActivation ||
+    !capitalSystems.retaliationPursuit ||
     !capitalSystems.startedInFront ||
     !capitalSystems.finiteChargeGuide ||
     !capitalSystems.committedWithinArc ||

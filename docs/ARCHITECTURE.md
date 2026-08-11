@@ -82,9 +82,9 @@ src/
                           per-instance geometry/material disposal on final detach
     PlayerShip.ts         arcade flight model driven by Input + PlayerShipDef stats
     EnemyShip.ts          steering/firing + cannon/rotary/rocket packages around EnemyBrain
-    Turret.ts             cannon/rotary/rocket emplacements + carrier traverse hemispheres
+    Turret.ts             cannon/rotary/rocket emplacements + synchronized carrier mounts
     NeutralShip.ts        cargo hauler flying trade routes; quest giver via hail (R)
-    CapitalShip.ts        carrier mount plan + committed, arc-clamped annihilator state/FX;
+    CapitalShip.ts        attacked-carrier pursuit + committed, arc-clamped annihilator state/FX;
                           also projects the jump-suppression field
     PickupSystem.ts       pooled resource drops with magnet-to-player + visit snapshots
   ai/
@@ -175,6 +175,7 @@ test/
     world.mjs             peace/trade/planet persistence/jump flow + turret clearance
     targeting.mjs         pursuit/contact policy, ordnance warnings/range and flight key chord
     capital.mjs           carrier battery, preview and annihilator probes
+    capital-retaliation.mjs  non-missile wake, pursuit, mount-sync and retaliation probe
     fx.mjs                smoke-preset lifetime + shield/camera feedback probes and assertions
     runtime.mjs           hunters, camera, turrets, devices and stress cleanup
     mobile.mjs            coarse-pointer gestures, hit geometry + native touch hangar
@@ -248,8 +249,9 @@ GameLoop.tick(dt, elapsed, wallDt)
     engine-trail particle emission (dt-accumulated)
     EnemyShip.update × N       ← EnemyBrain (patrol/approach/attack/break),
                                  stun + cloak-blind aware, fires via callback
+    CapitalShip.update          → pursuit/turn + mount synchronization + charge/fire state
     Turret.update × N          → traverse hemisphere + outward-offset LOS → turretFire
-    NeutralShip.update × N; CapitalShip.update → committed charge/fire state
+    NeutralShip.update × N
     ProjectileSystem.update    → homing (cloak can drop target) → indexed surface sweep → resolveHit
     ProjectileSystem threat    → live-seeker lock / monotonic ≤2 s impact countdown
        resolveHit: jump-disrupt · damage ships/turrets/capital/neutrals |
