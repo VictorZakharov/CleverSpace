@@ -110,7 +110,11 @@ export class GameCombat {
     const host = this.host;
     if (!this.hasLineOfSight(enemy.position, host.player.position)) return;
     enemy.forward(fireDirection);
+    const singleHomingMuzzle = enemy.rocketMode === 'homing'
+      ? enemy.nextRocketGunpoint()
+      : null;
     for (const gunpoint of enemy.gunpoints) {
+      if (singleHomingMuzzle && gunpoint !== singleHomingMuzzle) continue;
       fireMuzzle.copy(gunpoint).applyQuaternion(enemy.object.quaternion).add(enemy.position);
       if (enemy.rocketMode) {
         host.projectiles.spawnEnemyRocket(
@@ -210,6 +214,9 @@ export class GameCombat {
         host.audio.hitShield();
       }
     } else if (hit.ship instanceof CapitalShip) {
+      if (hit.faction === 'player' && hit.damage > 0 && !result.died) {
+        hit.ship.wakeForAttack();
+      }
       host.hud.flashHitmarker(result.died);
       if (result.died) this.killCapital(hit.ship);
       else showProjectileImpact(host.explosions, hit.point, hit.wasMissile, 1.3, 0.4);

@@ -193,6 +193,12 @@ export async function runTargetingSmoke(page) {
       () => seekerShots++,
       true,
     );
+    game.projectiles.clear();
+    game.combat.enemyFire(bomber);
+    const homingVolley = game.projectiles.debugSnapshot().filter(
+      (shot) => shot.faction === 'enemy' && shot.homing,
+    ).length;
+    game.projectiles.clear();
 
     game.spawnEnemy({
       kind: 'raider',
@@ -219,8 +225,14 @@ export async function runTargetingSmoke(page) {
       true,
     );
     const battery = game.capitalTurrets.find((turret) => turret.weapon === 'autogun');
+    const seekerBattery = game.capitalTurrets.find((turret) => turret.weapon === 'homing');
     const result = {
       seekerAt1050m: bomber.rocketMode === 'homing' && seekerShots > 0,
+      homingBalance: Math.abs(bomber.fireTimer - 5.6) < 1e-9 && homingVolley === 1 &&
+        Math.abs((seekerBattery?.stats.fireCooldown ?? 0) - 6.8) < 1e-9,
+      homingVolley,
+      seekerShipCooldown: bomber.fireTimer,
+      seekerBatteryCooldown: seekerBattery?.stats.fireCooldown ?? 0,
       rotaryShip: rotary.autoGun && rotaryBursts >= 2,
       rotaryBattery:
         battery?.kind === 'autogun-turret' && battery.stats.fireCooldown <= 0.11,

@@ -1,5 +1,9 @@
 import { Matrix4, Quaternion, Vector3 } from 'three';
-import { ENEMY_ROCKETS, EnemyRocketMode } from '../combat/WeaponDefs';
+import {
+  ENEMY_HOMING_COOLDOWN_MULTIPLIER,
+  ENEMY_ROCKETS,
+  EnemyRocketMode,
+} from '../combat/WeaponDefs';
 import { Rng } from '../core/Rng';
 import { Ship } from './Ship';
 
@@ -10,6 +14,8 @@ const lookMat = new Matrix4();
 const zero = new Vector3();
 const up = new Vector3(0, 1, 0);
 const sideHint = new Vector3(1, 0, 0);
+const mountDelta = new Quaternion();
+const mountInverse = new Quaternion();
 
 export type TurretWeapon = 'bolt' | 'autogun' | EnemyRocketMode;
 
@@ -24,7 +30,8 @@ export const TURRET_WEAPON_STATS = {
   },
   homing: {
     hull: 76, shield: 0, range: 520, turnRate: 1.0,
-    fireCooldown: 3.4, projectileSpeed: 92, damage: ENEMY_ROCKETS.homing.damage, score: 275,
+    fireCooldown: 3.4 * ENEMY_HOMING_COOLDOWN_MULTIPLIER,
+    projectileSpeed: 92, damage: ENEMY_ROCKETS.homing.damage, score: 275,
   },
   fast: {
     hull: 70, shield: 0, range: 470, turnRate: 1.2,
@@ -43,11 +50,14 @@ export const TURRET_STATS = TURRET_WEAPON_STATS.bolt;
 export class Turret extends Ship {
   readonly weapon: TurretWeapon;
   readonly stats: typeof TURRET_WEAPON_STATS[TurretWeapon];
-  /** Fixed world-space outward normal for carrier mounts. */
+  /** Current world-space outward normal for carrier mounts. */
   readonly mountNormal: Vector3 | null;
   /** Seconds of EMP stun remaining. */
   stunTimer = 0;
   private fireTimer: number;
+  private capitalMountPosition: Vector3 | null = null;
+  private capitalMountNormal: Vector3 | null = null;
+  private readonly capitalRotation = new Quaternion();
 
   constructor(rng: Rng, weapon: TurretWeapon = 'bolt', mountNormal: Vector3 | null = null) {
     const stats = TURRET_WEAPON_STATS[weapon];
@@ -62,6 +72,34 @@ export class Turret extends Ship {
     this.stats = stats;
     this.mountNormal = mountNormal?.clone().normalize() ?? null;
     this.fireTimer = rng.range(0.4, 1.4);
+  }
+
+  /** Preserve this battery's authored local mount while the carrier moves. */
+  bindCapitalMount(position: Vector3, normal: Vector3, rotation: Quaternion): void {
+    this.capitalMountPosition = position.clone();
+    this.capitalMountNormal = normal.clone().normalize();
+    this.capitalRotation.copy(rotation);
+  }
+
+  /** Follow carrier motion without discarding the battery's independent aim. */
+  syncCapitalMount(
+    capitalPosition: Vector3,
+    capitalRotation: Quaternion,
+    capitalVelocity: Vector3,
+  ): void {
+    if (!this.capitalMountPosition || !this.capitalMountNormal || !this.mountNormal) return;
+    mountDelta.copy(capitalRotation).multiply(
+      mountInverse.copy(this.capitalRotation).invert(),
+    );
+    this.object.quaternion.premultiply(mountDelta);
+    this.capitalRotation.copy(capitalRotation);
+    this.position.copy(this.capitalMountPosition)
+      .applyQuaternion(capitalRotation)
+      .add(capitalPosition);
+    this.mountNormal.copy(this.capitalMountNormal)
+      .applyQuaternion(capitalRotation)
+      .normalize();
+    this.velocity.copy(capitalVelocity);
   }
 
   canTraverse(target: Vector3): boolean {

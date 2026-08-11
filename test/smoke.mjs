@@ -15,6 +15,7 @@ import {
 import { collectDebrisFailures, runDebrisSmoke } from './smoke/debris.mjs';
 import { collectFxFailures, runFxSmoke } from './smoke/fx.mjs';
 import { runCapitalSmoke } from './smoke/capital.mjs';
+import { runCapitalRetaliationSmoke } from './smoke/capital-retaliation.mjs';
 import {
   collectDesktopInputFailures,
   runDesktopInputSmoke,
@@ -63,6 +64,7 @@ try {
   const debris = await runDebrisSmoke(page);
   const fx = await runFxSmoke(page);
   const projectileDamage = await runProjectileDamageSmoke(page);
+  Object.assign(capitalSystems, await runCapitalRetaliationSmoke(page));
   const runtime = await runRuntimeSmoke(page);
 
   console.log('page errors:', errors.length === 0 ? 'none' : errors.join('\n'));

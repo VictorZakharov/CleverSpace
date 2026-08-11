@@ -284,8 +284,9 @@ Asserted, in order:
     red/grey rather than changing to orange. Hostile previews independently assert
     a red silhouette-perimeter glow and green full-health internal wireframe;
     dormant independent turrets are also selected by the peaceful scan. Explicit
-    package staging proves a pursuing seeker bomber
-    fires at 1,050 m plus rapid rotary ship/battery cadence. Artificial projectile
+    package staging proves a pursuing seeker bomber fires one missile at 1,050 m,
+    then waits 5.6 s, while seeker batteries wait 6.8 s; it also checks rapid rotary
+    ship/battery cadence. Artificial projectile
     time proves homing versus fast-unguided rockets, a 900 m player-seeker hit and
     1,200 m expiry against the 1,050 m path budget, lock → ≤2 s imminent state,
     warning DOM classes and cloak target loss. Direct carrier stepping proves 12
@@ -294,6 +295,9 @@ Asserted, in order:
     and a nonempty 2D pixel footprint for the nose-on wireframe,
     individual mount lock at 200 m, frontal-only charge initiation, committed arc
     clamping, and first-asteroid absorption with the player/second rock protected.
+    A final fresh-carrier probe applies a 26-damage non-missile player hit at 900 m
+    and proves wake-up, gradual turning, forward pursuit, attached battery transforms,
+    newly clear traverse/LOS, and one long-range retaliation charge.
     A synthetic `L-Ctrl + W` chord proves both movement keys stay active while the
     browser shortcut default is consumed by immersive flight input.
 11. Cloak and crafting are both refused within the shared 180 m threat perimeter;

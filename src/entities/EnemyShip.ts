@@ -9,7 +9,12 @@ import {
 } from 'three';
 import { EnemyBrain } from '../ai/EnemyBrain';
 import { Rng } from '../core/Rng';
-import { ENEMY_AUTOGUN, ENEMY_ROCKETS, EnemyRocketMode } from '../combat/WeaponDefs';
+import {
+  ENEMY_AUTOGUN,
+  ENEMY_HOMING_COOLDOWN_MULTIPLIER,
+  ENEMY_ROCKETS,
+  EnemyRocketMode,
+} from '../combat/WeaponDefs';
 import { Ship } from './Ship';
 
 export type EnemyKind = 'raider' | 'brute' | 'bomber';
@@ -69,6 +74,7 @@ export class EnemyShip extends Ship {
   stunTimer = 0;
   private readonly brain: EnemyBrain;
   private fireTimer: number;
+  private rocketMuzzleIndex = 0;
 
   constructor(
     kind: EnemyKind,
@@ -102,6 +108,13 @@ export class EnemyShip extends Ship {
   /** Engaged AI is actively chasing/fighting rather than following a patrol route. */
   get pursuingPlayer(): boolean {
     return this.brain.state !== 'patrol';
+  }
+
+  /** Alternate single-seeker launches across the bomber's visible hardpoints. */
+  nextRocketGunpoint(): Vector3 {
+    const gunpoint = this.gunpoints[this.rocketMuzzleIndex];
+    this.rocketMuzzleIndex = (this.rocketMuzzleIndex + 1) % this.gunpoints.length;
+    return gunpoint;
   }
 
   update(
@@ -173,7 +186,9 @@ export class EnemyShip extends Ship {
         fire(this);
         this.fireTimer = this.autoGun
           ? ENEMY_AUTOGUN.fireCooldown
-          : this.stats.fireCooldown;
+          : this.stats.fireCooldown * (
+            this.rocketMode === 'homing' ? ENEMY_HOMING_COOLDOWN_MULTIPLIER : 1
+          );
       }
     }
 

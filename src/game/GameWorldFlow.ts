@@ -577,6 +577,7 @@ export class GameWorldFlow {
         const turret = new Turret(host.rng.fork(), mount.weapon, normal);
         turret.object.position.copy(world);
         turret.faceToward(world.clone().add(normal));
+        turret.bindCapitalMount(mount.position, mount.normal, host.capital.object.quaternion);
         host.scene.add(turret.object);
         host.turrets.push(turret);
         host.capitalTurrets.push(turret);
