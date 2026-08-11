@@ -34,9 +34,9 @@ export function tutorialControlGate(id: TutorialStepId): InputControlGate {
     case 'trade': return { move: true, look: true, keys: [...freeFlightKeys, 'KeyR'] };
     case 'trade-close': return { keys: ['KeyR', 'Escape'] };
     case 'planet': case 'lift': case 'jump': return { keys: ['KeyJ'] };
-    case 'surface-flight':
+    case 'surface-flight': case 'surface-alarm': case 'surface-repair':
       return { move: true, look: true, keys: freeFlightKeys };
-    case 'surface-turret': case 'surface-stash':
+    case 'surface-clear': case 'surface-stash':
       return {
         move: true,
         look: true,

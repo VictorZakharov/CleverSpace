@@ -582,13 +582,16 @@ export abstract class GameFoundation {
         game.scene.remove(target.object);
         target.dispose();
       },
-      fireTrainingBurst: (target) => game.combat.trainingFire(target),
-      fireTrainingHit: (target, damage) => game.combat.trainingHit(target, damage),
-      fireTrainingSeeker: (target) => game.combat.trainingSeeker(target),
-      playerSeekerImpacts: (target) => game.combat.playerSeekerImpacts(target),
+      fireTrainingBurst: (target) => game.combat.tutorialCombat.fireBurst(target),
+      fireTrainingHit: (target, damage) => game.combat.tutorialCombat.fireHit(target, damage),
+      fireTrainingSeeker: (target) => game.combat.tutorialCombat.fireSeeker(target),
+      playerSeekerImpacts: (target) => game.combat.tutorialCombat.playerSeekerImpacts(target),
       releaseTrainingSeekers: () => game.projectiles.releaseIncomingTarget(game.player),
       incomingMissileThreat: () => game.projectiles.incomingThreat(game.player),
-      prepareSurfaceMission: () => prepareTutorialSurfaceMission(game),
+      prepareSurfaceMission: () => prepareTutorialSurfaceMission(
+        game,
+        (from, to) => game.combat.hasLineOfSight(from, to),
+      ),
       setTutorialControls: (gate, preserveHeld) => {
         game.input.setControlGate(gate, preserveHeld);
         game.touchControls.setControlGate(gate);

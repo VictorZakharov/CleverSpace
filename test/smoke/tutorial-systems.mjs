@@ -12,6 +12,7 @@ export async function runTutorialSystems(page) {
     step: window.game.tutorial.stepId,
     sentryFiring: window.game.projectiles.debugSnapshot()
       .some((shot) => shot.faction === 'enemy' && shot.kind === 'bolt'),
+    seekerLocked: window.game.projectiles.incomingThreat(window.game.player).locked,
   }));
   const cloakControl = await touchGate(page, '[data-touch-action="cloak"]', '[data-touch-action="emp"]');
   await setTutorialKey(page, 'KeyF', true);
@@ -37,6 +38,7 @@ export async function runTutorialSystems(page) {
       cloaked: game.devices.cloaked,
       close: !!target && game.player.position.distanceTo(target.position) <= 65,
       unlimited: game.weapons.energy === game.weapons.energyMax,
+      lockCleared: !game.projectiles.incomingThreat(game.player).locked,
     };
   });
   await setTutorialButton(page, 0, true);

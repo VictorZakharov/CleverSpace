@@ -115,7 +115,7 @@ export async function runTutorialFlight(page) {
       awaiting: game.tutorial.awaitingAction,
       shieldUntouched: game.player.shield === game.player.shieldMax,
       impactConfirmed: !!target && target.hull + target.shield < target.hullMax + target.shieldMax,
-      actualImpacts: target ? game.combat.playerSeekerImpacts(target) : 0,
+      actualImpacts: target ? game.combat.tutorialCombat.playerSeekerImpacts(target) : 0,
       ammo: game.inventory.missiles,
     };
   });

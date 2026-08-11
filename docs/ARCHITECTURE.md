@@ -145,16 +145,19 @@ src/
     DamageFeedback.ts     shared hit-preset, shield-flare, camera-shake, HUD and audio contract
     GameHudPresenter.ts   HUD frame assembly, projections, radar and pickup flyouts
     GameWorldFlow.ts      jump spool, contact-facing arrivals and persistent planet swaps
+    PlayingInputActions.ts discrete flight-action dispatch before continuous simulation
     TutorialDirector.ts   live objective/review-hold orchestration, safety and staging
-    TutorialCards.ts      27 readable desktop/touch lesson definitions + review narration
+    TutorialCards.ts      30 readable desktop/touch lesson definitions + review narration
     TutorialControlGates.ts per-lesson keyboard/mouse/touch permission contract
     TutorialInputTransitions.ts deliberate player-intent narration interruption
     TutorialTransitions.ts held-result actions + cross-frame input handoff contract
     TutorialScenario.ts   staged actors/objectives + lesson completion routing
     TutorialFlightCourse.ts real-debris route construction for movement training
     TutorialStealthDrills.ts real missile-evasion + live cloak-infiltration drills
-    TutorialSurfaceMission.ts safe base, passive battery and salvage-cache expedition
-    TutorialCombat.ts     narrow real-projectile training adapters
+    TutorialSurfaceMission.ts selected-base training contract and weakened actor setup
+    TutorialSurfaceEncounter.ts authored-base selection + repeatable real actor staging
+    TutorialSurfaceDrills.ts local alarm, clearance, repair-pad and cache progression
+    TutorialCombat.ts     narrow real-projectile adapters + seeker-impact tracking
     TutorialHost.ts       controller-to-course capability boundary
     NavigationSystem.ts   shared player/tutorial destination, lock and moving-target reference
     SpawnSafety.ts        quiet sector-entry solver with guaranteed outer-shell fallback
@@ -193,7 +196,7 @@ test/
                           render-free deterministic simulation stepping
     preferences.mjs       real menu/hangar preference lifecycle + write-count probe
     hangar.mjs            hangar geometry, crafting and contact UI
-    tutorial*.mjs         isolated paced 27-step course, input gates, safety and teardown
+    tutorial*.mjs         isolated paced 30-step course, input gates, safety and teardown
     world.mjs             peace/trade/planet persistence/jump flow + turret clearance
     planetary-bases.mjs   base diversity, crawler behavior and single-hit regression
     planet-combat-stability.mjs  max-pool surface stress + heap/WebGL cleanup audit
@@ -238,8 +241,8 @@ as a new command. Passive selection from camera motion and automatic events
 remain latched until narration is done. Enter is added to the gate only when the overlay exposes an optional transition,
 never for an unfinished natural objective. Desktop Left/Right Arrow and touch chevrons call the same staging path as
 linear progression, including real flight/loadout/trade/surface state and lesson
-prerequisites, but does not rebuild the mission or consume the RNG stream. The original
-sector theme, asteroid layout and planet layout therefore remain stable while browsing.
+prerequisites. Course-owned actors may be rebuilt for a repeatable checkpoint, but the
+original sector theme, asteroid layout and planet layout remain stable while browsing.
 The director owns only course progression and calls small host
 adapters for real actions/staging. Desktop flight/review cards retain pointer lock and
 do not expose mouse-driven card controls; fresh Left/Right Arrow presses browse lessons,
@@ -255,6 +258,10 @@ The merchant-opening review remains live: closing its native panel before a purc
 returns to the marked hauler with flight/R controls available, so it can be reopened.
 Free-flight gates share roll, and the surface skyward handoff preserves orientation
 rather than staging a new camera pose.
+The surface chapter is split deliberately: `TutorialSurfaceEncounter` retains the
+authored installation and production actor classes, while `TutorialSurfaceDrills`
+owns only observable objectives. A foreign-base training actor stays alive through
+the local clearance so the real H-pad ownership predicate is exercised, not mocked.
 Its safety clamp runs before death processing.
 Exiting sets Hangar state before releasing a hold, tears down the
 tutorial expedition/surface, recreates the saved showcase hull, and never writes the

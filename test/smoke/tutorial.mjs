@@ -104,7 +104,8 @@ export async function runTutorialSmoke(page) {
       'welcome', 'flight', 'boost', 'target', 'guns', 'seekers', 'shield', 'hull',
       'repair', 'missile-dodge', 'cloak', 'cloak-break', 'emp', 'mine', 'loadout-open',
       'craft', 'loadout-close', 'trade-open', 'trade', 'trade-close', 'planet',
-      'surface-flight', 'surface-turret', 'surface-stash', 'lift', 'jump', 'complete',
+      'surface-flight', 'surface-alarm', 'surface-clear', 'surface-repair',
+      'surface-stash', 'lift', 'jump', 'carrier', 'complete',
     ];
     const forbidden = /real collision|hit volumes|procedural contracts|persistent surface dungeons|progression layer|physically docked/i;
     const violations = [];
@@ -217,18 +218,27 @@ export async function runTutorialSmoke(page) {
     panelHidden: getComputedStyle(document.querySelector('.tutorial-panel')).display === 'none',
   }));
 
-  await page.evaluate(() => window.game.tutorial.stageForTest('surface-turret'));
-  await page.evaluate(() =>
-    window.game.turrets.find((turret) => turret.training)?.takeDamage(1e6));
+  await page.evaluate(() => window.game.tutorial.stageForTest('surface-clear'));
+  await page.evaluate(() => window.game.turrets[0]?.takeDamage(1e6));
   await advanceGameTime(page, 0.1);
   await page.click('[data-el="previous"]');
   await advanceGameTime(page, 0.2);
-  const browseReset = await page.evaluate(() => ({
-    step: window.game.tutorial.stepId,
-    surface: window.game.surface !== null,
-    liveBattery: window.game.turrets.some((turret) => turret.training && turret.alive),
-    nav: window.game.navigation.current?.label ?? '',
-  }));
+  const browseReset = await page.evaluate(() => {
+    const game = window.game;
+    const crawler = game.turrets.find((turret) => 'totalShotsFired' in turret);
+    const localId = crawler?.surfaceBaseId;
+    return {
+      step: game.tutorial.stepId,
+      surface: game.surface !== null,
+      liveBattery: game.turrets.some((turret) =>
+        turret !== crawler && turret.surfaceBaseId === localId && turret.alive),
+      localDefender: game.enemies.some((enemy) =>
+        enemy.surfaceBaseId === localId && enemy.pursuingPlayer && enemy.alive),
+      foreignDefender: game.enemies.some((enemy) =>
+        enemy.surfaceBaseId !== localId && enemy.training && enemy.alive),
+      nav: game.navigation.current?.label ?? '',
+    };
+  });
 
   await page.evaluate(() => window.game.startTutorial());
   await advanceGameTime(page, 0.6);

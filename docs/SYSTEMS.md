@@ -41,7 +41,7 @@ ever-meaner sectors (or dive onto planets) → death banks score÷10 as **credit
 
 ## Guided tutorial
 
-- The Hangar's **Tutorial** action starts a 27-objective training expedition in the
+- The Hangar's **Tutorial** action starts a 30-objective training expedition in the
   Kestrel at Rookie tuning. It does not write hangar cookies or change the selected
   ship/difficulty; exiting destroys the training expedition and restores that exact
   showcase selection.
@@ -70,7 +70,8 @@ ever-meaner sectors (or dive onto planets) → death banks score÷10 as **credit
 - This is live instruction, not a slideshow: movement, boost, camera-centred
   targeting, primary fire, seekers, nanobots, cloak, decloaking fire, EMP, mining,
   Engineering, crafting, merchant trade, incoming-seeker evasion, a surface base
-  approach/battery/cache raid, planetfall, lift-off and a sector jump must each be
+  approach/alarm/clearance/cache raid, H-pad repair, planetfall, lift-off and a sector
+  jump must each be
   performed through their real input and gameplay paths.
   HUD focus rings and clamped world-space waypoints identify the exact system or
   object under instruction, with keyboard/mouse and touch-specific control copy.
@@ -89,7 +90,7 @@ ever-meaner sectors (or dive onto planets) → death banks score÷10 as **credit
   including while their review narration is speaking.
   That same input both releases the hold and operates the next real system; named
   buttons are limited to scripted demonstrations without a natural action. Progress
-  chevrons stage all scene/prerequisite state for any of the 27 playable debug
+  chevrons stage all scene/prerequisite state for any of the 30 playable debug
   checkpoints without rebuilding or rerolling the original sector theme and layout.
   The targeting lesson similarly remains on its own review until primary fire carries
   the player into Weapons. The seeker lesson waits for a recorded player-seeker collision before the separate
@@ -112,17 +113,24 @@ ever-meaner sectors (or dive onto planets) → death banks score÷10 as **credit
   camera feedback. The evasion lesson launches a real hostile seeker: a natural
   miss completes without a hold; an imminent intercept holds time until sufficient
   lateral/vertical displacement, then resumes the missile safely.
-- Cloak infiltration uses a live training sentry. It fires while the ship is
-  exposed, stops tracking during a cloaked approach inside 65 metres, and resumes
-  after weapon fire reveals the ship. The drill continuously refills weapon energy
-  so the pilot can experiment, while LYRA states that normal cloak drains the
-  finite bank and cannot last forever.
-- Surface training chooses one authored Vigil base, spawns the passive battery on
-  that base's real turret mount, and selects the salvage cache inside the same
-  landmark. The route never asks the pilot to shuttle between unrelated bases.
+- Cloak infiltration uses a live training sentry with harmless gunfire and a real
+  homing seeker. Cloak stops pursuit, clears the in-flight lock, and permits a close
+  approach inside 65 metres; weapon fire then reveals the ship and the sentry resumes.
+  The drill continuously refills weapon energy so the pilot can experiment, while
+  LYRA states that normal cloak drains the finite bank and cannot last forever.
+- Surface training chooses one authored Vigil base and stages its real battery,
+  tracked spiral crawler, parked defender, H pad, and cache. Detection launches that
+  base's defender; the crawler must visibly complete an eight-rocket corkscrew before
+  the pilot clears all three weakened actors. A harmless living defender at another
+  installation proves ownership isolation: it neither joins the alarm nor locks the
+  selected pad. The unlocked pad must restore hull through the production 2 HP/s
+  settled-landing rule and display its online and active-repair effects.
+- The post-jump threat briefing states the current Warden contract: any damaging hit
+  wakes pursuit and slow LOS turning, the annihilator cannot begin beyond 500 metres,
+  and cloak cancels pursuit, retaliation, and active seeker locks.
 - Training is consequence-free: the director restores a dead/empty player to a
-  minimum safe hull, uses a passive damageable target, clears the tutorial surface
-  garrison, supplies only course materials, and banks no score or Legacy progress.
+  minimum safe hull, weakens the selected surface defenders, supplies only course
+  materials, and banks no score or Legacy progress.
   Exit always returns to the Hangar and disposes enemies, turrets, neutrals and
   cached planet state from the lesson.
 

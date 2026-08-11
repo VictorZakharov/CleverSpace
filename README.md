@@ -51,15 +51,18 @@ with a telegraphed annihilator beam — cripple it, destroy it, or outrun its fi
   root-scoped browser cookies, so choices survive reloads without requiring Engage
   or game entry; opening or rendering the hangar never rewrites them.
 - **Interactive first-flight tutorial**: a dedicated Hangar action launches a
-  consequence-free, 27-objective Kestrel course led by the visual and spoken LYRA
+  consequence-free, 30-objective Kestrel course led by the visual and spoken LYRA
   instructor. It teaches real flight, combat, damage, devices, mining, crafting,
-  trade, missile evasion, a guided surface-base raid, planetfall and sector travel
+  trade, missile evasion, a live local-base alarm, spiral crawler salvo, full base
+  clearance, H-pad repair, planetfall, sector travel, and Warden carrier response
   using the actual systems, HUD highlights and shared world-space navigation. All
   LYRA copy stays in-universe instead of exposing collision, spawning, or procedural
   implementation language. The
   incoming-seeker lesson uses the production lock/impact warning: a clean unaided
   dodge passes immediately, while a close approach holds time until the player
-  moves laterally clear, then releases the real missile. Every completed objective holds its visible result until
+  moves laterally clear, then releases the real missile. Cloak training also keeps a
+  harmless seeker locked until cloak makes the production projectile lose its target.
+  Every completed objective holds its visible result until
   the player performs the next prompted gameplay action; named transition buttons
   remain only where no natural action exists. Left/Right Arrow on desktop and progress
   chevrons on touch screens stage any lesson as
@@ -80,11 +83,13 @@ with a telegraphed annihilator beam — cripple it, destroy it, or outrun its fi
   Closing Trade before buying returns to the still-marked merchant, and R can dock
   again without restarting the lesson. Free-flight lessons keep Q/E roll available.
   Scripted impacts and the harmless EMP demonstration remain visible for as long as
-  needed. Cloak training uses a live sentry that fires while the Kestrel is visible,
-  loses it during a close cloaked approach, and reacquires it after weapons reveal
-  the ship; energy is unlimited only for that drill, while LYRA explains the normal
-  finite-energy limit. The surface route keeps its passive battery and salvage cache
-  inside the same authored base. The first flight gate is placed beyond real debris,
+  needed. Cloak training uses a live sentry and harmless seeker: both pursuit and the
+  in-flight lock disappear during a close cloaked approach, and the sentry reacquires
+  after weapons reveal the ship. Energy is unlimited only for that drill, while LYRA
+  explains the normal finite-energy limit. The surface route keeps its battery,
+  crawler, parked defender, H pad, and salvage cache inside the same authored base,
+  while a foreign-base actor proves the pad's local ownership rule. The first flight
+  gate is placed beyond real debris,
   requiring an actual six-axis route rather than straight-line thrust. Contextual HUD
   prompts expose only the interaction taught by the current lesson. Looking skyward
   confirms lift-off without snapping the view, and holding J through orbit cannot

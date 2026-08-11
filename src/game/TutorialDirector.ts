@@ -16,7 +16,7 @@ import {
 export type { TutorialStepId } from './TutorialCards';
 
 const continuousSteps = new Set<TutorialStepId>([
-  'flight', 'trade-close', 'planet', 'surface-flight', 'surface-turret', 'lift',
+  'flight', 'trade-close', 'planet', 'surface-flight', 'surface-clear', 'lift',
 ]);
 const forward = new Vector3();
 

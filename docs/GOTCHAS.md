@@ -435,7 +435,8 @@ Real issues hit while building this game, kept here so they only get paid for on
   the real system; use a named button only for a scripted transition with no natural
   action. In particular, seeker completion requires a real player-seeker collision,
   not just ammo consumption or generic target-health loss; otherwise the next scripted
-  shield hit looks like self-damage. Count that collision in `GameCombat`. EMP
+  shield hit looks like self-damage. Count that collision in `TutorialCombat` at the
+  normal `GameCombat.resolveHit` boundary. EMP
   training fire must be real visible projectiles, zero-damage and deliberately aimed
   past the hull.
 - **Narration must yield to the pilot, but never to a timer.** Arm the current lesson's
@@ -458,12 +459,16 @@ Real issues hit while building this game, kept here so they only get paid for on
   “procedural contract,” “persistent dungeon,” and “progression layer” belong in these
   docs, never in spoken or visible instruction.
 - **Teach cloak by demonstrating detection, not by toggling a flag.** A live sentry
-  must fire while exposed, stop while the player approaches cloaked, and resume after
+  must fire while exposed and keep a real harmless seeker locked. Cloak must clear that
+  production lock and pursuit during the close approach; the sentry resumes only after
   the ship reveals itself. Tutorial-only unlimited energy belongs inside that drill;
   narration must still explain the finite bank used by normal flight.
-- **A surface lesson route owns one authored base.** Use a recorded real battery
-  mount and a cache within the same base landmark; arbitrary nearest turrets can be
-  cave batteries or belong to another base and create incoherent backtracking.
+- **A surface lesson route owns one authored base.** Use its recorded battery mount,
+  crawler spawn, parked defender, H pad, and cache. Arbitrary nearest actors can be cave
+  batteries or belong to another base and create incoherent backtracking. Keep one
+  harmless foreign-base actor alive so pad isolation is proven by the real ownership
+  predicate. Rebuild course-owned actors when chevron restaging requires repeatability;
+  never reroll the authored planet layout.
 - **Missile-evasion training must exercise the production threat model.** Spawn a
   real enemy homing projectile and read `incomingThreat`; never fabricate a warning
   countdown. A clean player dodge completes live. Only an imminent collision may

@@ -60,6 +60,12 @@ export async function runTutorialTravel(page) {
     surface: window.game.surface !== null,
   }));
   await page.click('.tutorial-next');
+  const carrier = await page.evaluate(() => ({
+    step: window.game.tutorial.stepId,
+    frozen: window.game.tutorial.frozen,
+    copy: document.querySelector('[data-el="narration"]')?.textContent ?? '',
+  }));
+  await page.click('.tutorial-next');
   const completion = await page.evaluate(() => ({
     step: window.game.tutorial.stepId,
     progress: document.querySelector('[data-el="progress"]')?.textContent ?? '',
@@ -75,7 +81,7 @@ export async function runTutorialTravel(page) {
     warpVisible: window.game.warp.group.visible,
   }));
   const manualNav = await testManualNavigation(page);
-  return { stashCleared, orbitNarration, debrief, completion, returned, manualNav };
+  return { stashCleared, orbitNarration, debrief, carrier, completion, returned, manualNav };
 }
 
 async function testManualNavigation(page) {

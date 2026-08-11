@@ -86,13 +86,15 @@ export class TutorialStealthDrills {
       this.cloakFireTimer = 0.35;
     } else if (target.alive) {
       target.faceToward(h.player.position);
+      if (!h.incomingMissileThreat().locked) h.fireTrainingSeeker(target);
       this.cloakFireTimer -= dt;
       if (this.cloakFireTimer <= 0) {
         h.fireTrainingBurst(target);
         this.cloakFireTimer = 0.65;
       }
     }
-    return h.devices.cloaked && h.player.position.distanceTo(target.position) <= 65;
+    return h.devices.cloaked && !h.incomingMissileThreat().locked &&
+      h.player.position.distanceTo(target.position) <= 65;
   }
 
   beginCloakBreak(): void {

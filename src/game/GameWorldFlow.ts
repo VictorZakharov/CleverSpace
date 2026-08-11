@@ -374,7 +374,6 @@ export class GameWorldFlow {
     host.clearNavigation();
     host.voice.cancel();
     host.pendingOffer = null;
-
     for (const enemy of host.enemies) host.scene.remove(enemy.object);
     for (const turret of host.turrets) host.scene.remove(turret.object);
     for (const neutral of host.neutrals) host.scene.remove(neutral.object);
@@ -436,7 +435,6 @@ export class GameWorldFlow {
     if (!host.surface || !this.spaceStash) return;
     host.clearNavigation();
     const planetIndex = this.spaceStash.planetIndex;
-
     this.planetStates.set(planetIndex, {
       surface: host.surface,
       enemies: host.enemies,

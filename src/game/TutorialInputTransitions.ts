@@ -6,13 +6,13 @@ export function tutorialInstructionActionTriggered(id: TutorialStepId, input: In
   switch (id) {
     case 'welcome':
       return input.wasPressed('Enter') || input.wasPressed('NumpadEnter');
-    case 'flight': case 'surface-flight':
+    case 'flight': case 'surface-flight': case 'surface-alarm': case 'surface-repair':
       return movementTriggered(input);
     case 'boost':
       return input.isDown('ShiftLeft') &&
         (input.isDown('KeyW') || input.flightAxis('thrust') > 0.15);
     case 'guns': case 'cloak-break': case 'mine':
-    case 'surface-turret': case 'surface-stash':
+    case 'surface-clear': case 'surface-stash':
       return input.wasButtonPressed(0);
     case 'seekers':
       return input.wasButtonPressed(2);

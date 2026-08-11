@@ -6,6 +6,7 @@ import { PostFx } from '../rendering/PostFx';
 import type { AsteroidBody } from '../world/AsteroidField';
 import { showPlayerDamageFeedback } from './DamageFeedback';
 import { repairPlayerOnClearedPad } from './SurfaceBaseSystems';
+import { handlePlayingInput } from './PlayingInputActions';
 import {
   CAPITAL_TURRET_LOCK_RANGE_METERS,
   targetPresentation,
@@ -167,33 +168,7 @@ export abstract class GameRuntime extends GameInteractions {
 
   private updatePlaying(dt: number): void {
     const player = this.player;
-
-    if (this.input.wasPressed('Escape')) {
-      this.pause();
-      return;
-    }
-    if (this.input.wasPressed('Tab')) {
-      this.openLoadout();
-      return;
-    }
-    if (this.input.wasPressed('KeyV')) {
-      this.chaseCam.toggleMode();
-      this.audio.uiClick();
-    }
-    if (this.jumpSpool < 0 && this.input.wasPressed('KeyJ')) this.startJump();
-    if (this.input.wasPressed('KeyF')) this.activateCloak();
-    if (this.input.wasPressed('KeyG')) this.activateEmp();
-    if (this.input.wasPressed('KeyH')) this.useNanobots();
-    if (this.input.wasPressed('KeyN')) this.toggleNavigationPoint();
-    if (this.input.wasPressed('KeyR')) {
-      if (this.pendingOffer) this.acceptOffer();
-      else this.hailNearestNeutral();
-    }
-    if (this.input.wasPressed('KeyX') && this.pendingOffer) {
-      this.declineOffer();
-    }
-    // Docking changes state in the R handler. Do not restart engine audio.
-    if (this.state !== 'playing') return;
+    if (!handlePlayingInput(this)) return;
     if (this.tutorial.maneuverHold) {
       this.rebuildTargetLists();
       this.updatePlayerFlight(dt);

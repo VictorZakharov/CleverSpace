@@ -35,7 +35,7 @@ import {
 } from './smoke/projectile-damage.mjs';
 import { runRuntimeSmoke } from './smoke/runtime.mjs';
 import { runTargetingSmoke } from './smoke/targeting.mjs';
-import { collectTutorialFailures, runTutorialSmoke } from './smoke/tutorial.mjs';
+import { runTutorialSmokeSuite } from './smoke/tutorial-runner.mjs';
 import { runWorldSmoke } from './smoke/world.mjs';
 
 const DIST = fileURLToPath(new URL('../dist/', import.meta.url));
@@ -46,16 +46,11 @@ const server = await startDistServer(DIST, PORT, '/NebReck');
 let browser;
 
 try {
-  browser = await chromium.launch({
-    args: ['--use-angle=swiftshader', '--mute-audio'],
-  });
+  browser = await chromium.launch({ args: ['--use-angle=swiftshader', '--mute-audio'] });
 
   const hangarPreferences = await runPreferenceSmoke(browser, BASE_URL, errors);
   const mobile = await runMobileSmoke(browser, BASE_URL, errors);
-  const tutorialPage = await openSmokePage(browser, BASE_URL, errors);
-  const tutorial = await runTutorialSmoke(tutorialPage);
-  console.log('interactive tutorial:', JSON.stringify(tutorial));
-  await tutorialPage.context().close();
+  const tutorialFailures = await runTutorialSmokeSuite(browser, BASE_URL, errors);
   const page = await openSmokePage(browser, BASE_URL, errors);
 
   // Ordering is intentional: later probes reuse world state staged by earlier
@@ -86,7 +81,7 @@ try {
     runtime,
   });
   failures.push(...collectDesktopInputFailures(desktopInput));
-  failures.push(...collectTutorialFailures(tutorial));
+  failures.push(...tutorialFailures);
   failures.push(...collectPerformanceFailures(performance));
   failures.push(...collectPlanetaryBaseFailures(planetaryBases));
   failures.push(...collectFxFailures(fx));

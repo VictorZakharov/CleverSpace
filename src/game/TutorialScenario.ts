@@ -11,7 +11,10 @@ import {
   TutorialScenarioUpdate,
   TutorialStealthDrills,
 } from './TutorialStealthDrills';
-import { TutorialSurfaceTargets } from './TutorialSurfaceMission';
+import {
+  isTutorialSurfaceStep,
+  TutorialSurfaceDrills,
+} from './TutorialSurfaceDrills';
 
 export type { TutorialScenarioEvent } from './TutorialStealthDrills';
 
@@ -24,11 +27,11 @@ const nearestPoint = new Vector3();
 /** Owns staged world actors, baselines, destinations, and objective completion. */
 export class TutorialScenario {
   private readonly stealth: TutorialStealthDrills;
+  private readonly surfaceDrills: TutorialSurfaceDrills;
   private trainingTarget: EnemyShip | null = null;
   private oreBody: AsteroidBody | null = null;
   private merchant: NeutralShip | null = null;
   private planet: PlanetInfo | null = null;
-  private surfaceMission: TutorialSurfaceTargets | null = null;
   private waypoint: Vector3 | null = null;
   private targetHealth = 0;
   private seekerImpactsBefore = 0;
@@ -44,6 +47,7 @@ export class TutorialScenario {
 
   constructor(private readonly host: TutorialHost) {
     this.stealth = new TutorialStealthDrills(host);
+    this.surfaceDrills = new TutorialSurfaceDrills(host);
   }
 
   reset(): void {
@@ -52,11 +56,11 @@ export class TutorialScenario {
     this.oreBody = null;
     this.merchant = null;
     this.planet = null;
-    this.surfaceMission = null;
     this.waypoint = null;
     this.pendingDamage = null;
     this.damageRetry = 0;
     this.stealth.reset();
+    this.surfaceDrills.reset();
   }
 
   prepare(id: TutorialStepId, restage = false): void {
@@ -68,9 +72,11 @@ export class TutorialScenario {
     if (!targetSteps.includes(id)) this.clearTrainingTarget();
     if (id !== 'missile-dodge') h.releaseTrainingSeekers();
     if (id !== 'cloak' && id !== 'cloak-break') h.setTutorialCloak(false);
-    if (!['surface-flight', 'surface-turret', 'surface-stash', 'lift'].includes(id)) {
-      this.surfaceMission = null;
+    if (isTutorialSurfaceStep(id)) {
+      h.stageTutorialScene('surface');
+      return;
     }
+    this.surfaceDrills.reset();
     switch (id) {
       case 'craft': case 'loadout-close':
         this.supplyEngineeringMaterials();
@@ -83,9 +89,6 @@ export class TutorialScenario {
         this.prepareMerchant();
         h.stageTutorialScene('trade');
         break;
-      case 'surface-flight': case 'surface-turret': case 'surface-stash': case 'lift':
-        h.stageTutorialScene('surface');
-        break;
       default:
         h.stageTutorialScene('flight');
         break;
@@ -95,6 +98,10 @@ export class TutorialScenario {
   enter(id: TutorialStepId): void {
     const h = this.host;
     this.waypoint = null;
+    if (isTutorialSurfaceStep(id)) {
+      this.surfaceDrills.enter(id);
+      return;
+    }
     switch (id) {
       case 'flight':
         const course = debrisFlightCourse(h.player, h.worldBodies);
@@ -168,15 +175,6 @@ export class TutorialScenario {
         h.inventory.add('scrap', Math.max(0, 8 - h.inventory.counts.scrap));
         break;
       case 'planet': this.preparePlanet(); break;
-      case 'surface-flight':
-        this.surfaceMission = h.prepareSurfaceMission();
-        break;
-      case 'surface-turret': this.ensureSurfaceMission(); break;
-      case 'surface-stash': this.ensureSurfaceMission(); break;
-      case 'lift':
-        this.ensureSurfaceMission();
-        this.waypoint = h.player.position.clone().addScaledVector(up, 140);
-        break;
       case 'jump':
         this.sectorBefore = h.sectorIndex;
         h.inventory.add('flux', Math.max(0, 4 - h.inventory.counts.flux));
@@ -201,6 +199,9 @@ export class TutorialScenario {
       this.trainingTarget.velocity.multiplyScalar(Math.exp(-8 * dt));
     }
     if (!testCompletion) return { complete: false };
+    if (isTutorialSurfaceStep(id)) {
+      return { complete: this.surfaceDrills.update(id) };
+    }
     if (id === 'missile-dodge' && this.trainingTarget) {
       return this.stealth.updateMissileDodge(this.trainingTarget, dt, narrationReady);
     }
@@ -227,12 +228,6 @@ export class TutorialScenario {
       case 'trade': complete = this.tradeDone; break;
       case 'trade-close': complete = h.state === 'playing'; break;
       case 'planet': complete = h.surface !== null; break;
-      case 'surface-flight':
-        complete = !!this.surfaceMission && h.player.position.distanceTo(this.surfaceMission.base) < 105;
-        break;
-      case 'surface-turret': complete = this.surfaceMission?.turret.alive === false; break;
-      case 'surface-stash': complete = this.surfaceMission?.stash.destroyed === true; break;
-      case 'lift': complete = h.surface === null; break;
       case 'jump': complete = h.sectorIndex > this.sectorBefore; break;
     }
     return { complete };
@@ -248,6 +243,7 @@ export class TutorialScenario {
   }
 
   navigation(id: TutorialStepId): NavigationDestination | null {
+    if (isTutorialSurfaceStep(id)) return this.surfaceDrills.navigation(id);
     const position = this.navigationPosition(id);
     if (!position) return null;
     const tracked = this.trainingTarget;
@@ -256,8 +252,7 @@ export class TutorialScenario {
       label: this.navigationLabel(id),
       kind: id === 'planet' ? 'planet'
         : id === 'mine' ? 'vein'
-          : id === 'surface-flight' ? 'base'
-            : id === 'surface-stash' ? 'stash' : 'objective',
+          : 'objective',
       position,
       valid: tracked && ['target', 'guns', 'seekers', 'missile-dodge', 'shield', 'hull', 'emp'].includes(id)
         ? () => tracked.alive : undefined,
@@ -316,9 +311,6 @@ export class TutorialScenario {
       case 'mine': return this.oreBody?.position ?? null;
       case 'trade-open': return this.merchant?.position ?? null;
       case 'planet': return this.planet?.position ?? null;
-      case 'surface-flight': return this.surfaceMission?.base ?? null;
-      case 'surface-turret': return this.surfaceMission?.turret.position ?? null;
-      case 'surface-stash': return this.surfaceMission?.stash.position ?? null;
       default: return this.waypoint;
     }
   }
@@ -333,10 +325,6 @@ export class TutorialScenario {
       case 'mine': return 'Mineral vein';
       case 'trade-open': return 'Merchant';
       case 'planet': return 'Planetfall';
-      case 'surface-flight': return 'Vigil base';
-      case 'surface-turret': return 'Training battery';
-      case 'surface-stash': return 'Salvage cache';
-      case 'lift': return 'Skyward';
       case 'jump': return 'Jump vector';
       default: return 'Objective';
     }
@@ -430,10 +418,6 @@ export class TutorialScenario {
     player.faceToward(this.waypoint);
     player.velocity.set(0, 0, 0);
     this.host.chaseCam.snapTo(player.object);
-  }
-
-  private ensureSurfaceMission(): void {
-    this.surfaceMission ??= this.host.prepareSurfaceMission();
   }
 
   private get trainingHealth(): number {

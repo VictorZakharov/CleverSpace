@@ -92,7 +92,7 @@ never author a pedestal longer than 12 m.
 Hangar selection clicks are persistence commits. Save ship/difficulty synchronously
 inside the click callbacks; do not defer them to Engage or game entry.
 
-The 27-step tutorial uses a Kestrel/Rookie training expedition without writing those
+The 30-step tutorial uses a Kestrel/Rookie training expedition without writing those
 choices to preferences. All lessons must remain readable without speech, complete
 through real input/system state, and protect the player before death processing.
 The current lesson's permitted controls arm immediately: deliberate player input
@@ -126,11 +126,14 @@ an unaided miss passes immediately, while an imminent intercept may hold time on
 until lateral/vertical movement clears the path, then must release the missile and
 remove the warning without damaging the player.
 
-Cloak training uses a live sentry: it must visibly fire while the player is exposed,
-lose the player during a close cloaked approach, and resume only after the player
-reveals the ship. Refill cloak energy only for that drill and explicitly teach that
-normal cloak drains a finite weapon bank. Planet training selects one authored base;
-its passive battery mount and salvage cache must both be inside that same landmark.
+Cloak training uses a live sentry and harmless real seeker: it must visibly fire while
+the player is exposed, lose pursuit and the in-flight lock during a close cloaked
+approach, and resume only after the player reveals the ship. Refill cloak energy only
+for that drill and explicitly teach that normal cloak drains a finite weapon bank.
+Planet training selects one authored base and stages its actual battery, spiral crawler,
+parked defender, H pad, and cache. A live harmless actor from another base must remain
+through local clearance so the production ownership predicate proves it does not lock
+the selected pad. The repair lesson must use the settled 2 HP/s rule and its real effects.
 
 Player seekers have a 1,050 m cumulative traveled-path budget, including curves;
 clamp the final swept segment before collision so a large step cannot over-range

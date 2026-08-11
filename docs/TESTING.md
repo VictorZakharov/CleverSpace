@@ -169,7 +169,7 @@ reference Windows machine these harness changes reduce the unchanged full suite
 from 52.2 seconds to 27.2 seconds.
 
 The `tutorial*.mjs` group runs in its own Chromium context and enters through the real Hangar
-button after explicitly selecting Vanta. It completes all 27 objectives through
+button after explicitly selecting Vanta. It completes all 30 objectives through
 the same virtual input actions used by touch, including physical projectile travel,
 devices, ore damage, real Engineering/trade overlays, planetfall, lift and jump.
 It forces the touch deck so each step's highlighted/disabled mapping is inspected,
@@ -200,20 +200,23 @@ flight without advancing and that its
 recorded collision lands before scripted incoming damage, then
 launches a real hostile seeker through both branches of the evasion lesson: an
 imminent approach holds until lateral movement clears it, while a smart unaided
-dodge advances without freezing. The EMP probe observes harmless passing bolts,
+dodge advances without freezing. Cloak must then drop a separate live seeker lock.
+The EMP probe observes harmless passing bolts,
 triggers the real four-second stun, waits for fire to resume, and repeats EMP with
-its training-only instant recharge. It also follows shared nav markers through the
-base, asserts the passive battery and salvage cache occupy that same authored base,
+its training-only instant recharge. It also follows shared nav markers through one
+authored base, observes a complete eight-rocket corkscrew and local parked launch,
+clears the weakened battery/crawler/defender trio, proves a foreign defender does not
+lock the H pad, and records its unlock/online/2 HP/s repair effects. It
 verifies that the live sentry fires before cloak, loses the close cloaked ship with
 training energy held full, and reacquires it after decloaking fire, then asserts manual
 `N` navigation after teardown.
 The flight/surface probes require Q/E roll in free movement. The travel probe records
 the skyward quaternion and rejects camera snapping, holds LYRA across lift-off, injects
 a repeating held-J event, and requires the Sector Jump narration to remain active.
-All 27 opening cards are rendered and checked for empty or implementation-facing copy.
+All 30 opening cards are rendered and checked for empty or implementation-facing copy.
 Portrait bounds, centered progress chevrons, 44 px controls,
 frozen-position stability, death
-recovery, cleared surface danger, teardown, and restoration of
+recovery, real surface defenses and repair, teardown, and restoration of
 the untouched Vanta preference/showcase. This is intentionally a full course test:
 checking only a staged card would not catch a lesson that can no longer advance.
 

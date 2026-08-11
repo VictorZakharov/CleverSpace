@@ -31,7 +31,7 @@ import { Quest, QuestSystem } from './Quests';
 import { pointInsideBody, rayHitsBodyBox } from './WorldCollision';
 import { resolveEnemySurfaceCollision as resolveSurfaceEnemy } from './SurfaceEnemyCollision';
 import { alertSurfaceBaseDefenders } from './SurfaceBaseSystems';
-import { fireTutorialBurst, fireTutorialHit, fireTutorialSeeker } from './TutorialCombat';
+import { TutorialCombat } from './TutorialCombat';
 
 const pushDir = new Vector3();
 const boxClosest = new Vector3();
@@ -99,9 +99,11 @@ export interface GameCombatHost {
 export class GameCombat {
   private readonly losBodies: AsteroidBody[] = [];
   private readonly playerSurfaceBodies: AsteroidBody[] = [];
-  private readonly playerSeekerHits = new WeakMap<Ship, number>();
+  readonly tutorialCombat: TutorialCombat;
 
-  constructor(private readonly host: GameCombatHost) {}
+  constructor(private readonly host: GameCombatHost) {
+    this.tutorialCombat = new TutorialCombat(host);
+  }
 
   /** Wake only the defenders authored for one planetary installation. */
   alertSurfaceBase(baseId: number): number {
@@ -156,26 +158,6 @@ export class GameCombat {
     }
   }
 
-  /** Fire harmless bolts visibly past the player for the tutorial EMP demonstration. */
-  trainingFire(enemy: EnemyShip): void {
-    fireTutorialBurst(this.host, enemy);
-  }
-
-  /** One visible, real collision-tested bolt for shield/hull instruction. */
-  trainingHit(enemy: EnemyShip, damage: number): void {
-    fireTutorialHit(this.host, enemy, damage);
-  }
-
-  /** A harmless real seeker: HUD tracking and steering remain production code. */
-  trainingSeeker(enemy: EnemyShip): void {
-    fireTutorialSeeker(this.host, enemy);
-  }
-
-  /** Monotonic per-target count used to teach confirmed seeker impacts. */
-  playerSeekerImpacts(target: Ship): number {
-    return this.playerSeekerHits.get(target) ?? 0;
-  }
-
   resolveHit(hit: ProjectileHit): void {
     const host = this.host;
     if (!hit.ship) {
@@ -217,7 +199,7 @@ export class GameCombat {
     }
 
     if (hit.faction === 'player' && hit.wasMissile) {
-      this.playerSeekerHits.set(hit.ship, this.playerSeekerImpacts(hit.ship) + 1);
+      this.tutorialCombat.recordPlayerSeekerImpact(hit.ship);
     }
     const result = hit.ship.takeDamage(hit.damage);
     if (hit.ship === host.player) {

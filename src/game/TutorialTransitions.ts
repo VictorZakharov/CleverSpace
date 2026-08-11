@@ -38,7 +38,7 @@ export function tutorialReviewAdvance(id: TutorialStepId, touch: boolean): Tutor
     case 'trade': return action('close', 'When ready, undock and return to flight.', [key('R or Esc', 'Close')], 'trade-close');
     case 'trade-close': return action('jump', 'When ready, hold the jump control while aiming at the marked planet.', [key('Hold J', 'Hold Jump')], 'planet');
     case 'planet': return action('move', 'When ready, use the flight controls to begin the surface survey.', [key('Flight controls', 'Move stick')], 'surface-flight');
-    case 'surface-flight': return action('jump', 'When ready, hold the jump control to lift off.', [key('Hold J', 'Hold Jump')], 'lift');
+    case 'surface-alarm': return action('primary', 'Fire when ready to clear this installation.', [key('Left mouse', 'Fire')], 'surface-clear');
     case 'surface-stash': return {
       kind: 'skyward',
       objective: 'Collect the released salvage, then point the ship clearly skyward.',
