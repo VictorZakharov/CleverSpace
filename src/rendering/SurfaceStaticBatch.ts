@@ -13,9 +13,10 @@ import type { AsteroidBody } from '../world/AsteroidField';
 const PRESERVED_NAMES = new Set([
   'surface-terrain',
   'cave-tunnel',
-  'surface-rock-lobe',
   'cave-rock-lobe',
 ]);
+const AUDIT_SOURCE_NAMES = new Set(['surface-rock-lobe']);
+const AUDIT_SOURCE_LAYER = 31;
 
 export interface SurfaceBatchStats {
   sourceMeshes: number;
@@ -77,7 +78,14 @@ export function batchSurfaceStatics(
     const batch = new Mesh(merged, material);
     batch.name = 'surface-static-batch';
     root.add(batch);
-    for (const mesh of meshes) mesh.removeFromParent();
+    for (const mesh of meshes) {
+      if (AUDIT_SOURCE_NAMES.has(mesh.name)) {
+        mesh.layers.set(AUDIT_SOURCE_LAYER);
+        mesh.userData.renderBatchSource = true;
+      } else {
+        mesh.removeFromParent();
+      }
+    }
     sourceMeshes += meshes.length;
     batches++;
   }

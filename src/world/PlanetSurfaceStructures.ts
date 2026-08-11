@@ -4,10 +4,49 @@ import { AsteroidBody } from './AsteroidField';
 import { TurretSpawn } from './CaveAsteroid';
 
 export type BaseKind = 'compound' | 'comm' | 'depot' | 'fortress';
+export type SurfaceBaseId = number;
 
 export interface SurfacePatrol {
   waypoints: Vector3[];
   size: number;
+  /** Installation that owns this wing; local alarms never cross this boundary. */
+  baseId: SurfaceBaseId;
+}
+
+export interface SurfaceBaseLandmark {
+  baseId: SurfaceBaseId;
+  center: Vector3;
+  kind: BaseKind;
+  /** Approximate fortified footprint radius. */
+  radius: number;
+}
+
+export interface HoverBaseLandmark {
+  baseId: SurfaceBaseId;
+  center: Vector3;
+  /** Approximate fly-around station radius. */
+  radius: number;
+}
+
+export interface GroundLauncherSpawn {
+  baseId: SurfaceBaseId;
+  position: Vector3;
+  baseCenter: Vector3;
+  leashRadius: number;
+  lookAt: Vector3;
+}
+
+export interface ParkedDefenderSpawn {
+  baseId: SurfaceBaseId;
+  position: Vector3;
+  lookAt: Vector3;
+}
+
+export interface SurfaceRepairPad {
+  baseId: SurfaceBaseId;
+  /** World-space deck surface; landed checks compare against the ship's underside. */
+  center: Vector3;
+  radius: number;
 }
 
 export interface CaveWaypoint {
@@ -40,12 +79,23 @@ export interface SurfaceStructureHost {
   turretSpawns: TurretSpawn[];
   patrols: SurfacePatrol[];
   caveLandmarks: CaveLandmark[];
-  baseLandmarks: { center: Vector3; kind: BaseKind }[];
+  baseLandmarks: SurfaceBaseLandmark[];
+  hoverBaseLandmarks: HoverBaseLandmark[];
+  groundLauncherSpawns: GroundLauncherSpawn[];
+  parkedDefenderSpawns: ParkedDefenderSpawn[];
+  repairPads: SurfaceRepairPad[];
   heightAt(x: number, z: number): number;
   registerObstacle(object: Object3D, padding?: number): void;
   addCrystalFormation(rng: Rng, x: number, y: number, z: number): void;
   addStash(rng: Rng, x: number, y: number, z: number): void;
-  addTurretPost(x: number, y: number, z: number, lookX: number, lookZ: number): void;
+  addTurretPost(
+    x: number,
+    y: number,
+    z: number,
+    lookX: number,
+    lookZ: number,
+    baseId?: SurfaceBaseId,
+  ): void;
 }
 
 /** Shared broad-noise displacement for both surface and cave boulders. */

@@ -20,7 +20,7 @@ export interface ShipAudit {
 export function auditShipConnectivity(eps = 0.045): ShipAudit[] {
   const kinds: ShipKind[] = [
     'kestrel', 'vanta', 'aegis', 'raider', 'brute', 'bomber',
-    'turret', 'autogun-turret', 'rocket-turret', 'hauler', 'capital',
+    'turret', 'autogun-turret', 'rocket-turret', 'ground-launcher', 'hauler', 'capital',
   ];
   const local = new Vector3();
   const clamped = new Vector3();

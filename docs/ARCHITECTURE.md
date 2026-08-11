@@ -63,9 +63,12 @@ src/
     FogBanks.ts           three instanced noise-billboard batches (volumetric stand-in)
     WreckSite.ts          derelict hulks with lootable blackboxes (unmarked POIs)
     PlanetSurface.ts      landable terrain/collision core + revisit-stable landmarks
-    PlanetSurfaceBase.ts independent Vigil base-template builder
+    PlanetSurfaceBase.ts independent Vigil base-template core builder
+    PlanetSurfaceBaseExpansion.ts fortified district walls, skyline, roads + crawler bays
+    PlanetSurfaceHoverBase.ts optional fly-around airborne station landmark
+    SurfaceBaseMaterials.ts planet-shared base palette for cross-district static batching
     PlanetSurfaceCave.ts open-bottomed cave arch + profile-matched shell/clear route
-    PlanetSurfaceStructures.ts shared host contract, route/guard landmarks, rock shaping
+    PlanetSurfaceStructures.ts shared host contract, base/cave/artillery landmarks, rock shaping
     SurfaceBodyIndex.ts  static X/Z broadphase for surface collision/LOS/projectiles
     SpaceDust.ts          camera-following wrap-around motes (speed sensation)
     noiseGlsl.ts          shared simplex/fbm GLSL chunk
@@ -75,6 +78,8 @@ src/
     ShipMeshBuilder.ts    shared materials, airfoils, nav lights and engine glow
     PlayerShipMeshes.ts   Kestrel, Vanta and Aegis geometry
     NpcShipMeshes.ts      raider, brute, bomber, gun/rotary/rocket turret, hauler/capital geometry
+    GroundRocketLauncher.ts terrain-following leashed crawler AI + eight-shot salvo state
+    GroundRocketLauncherMesh.ts vertex-painted tracked chassis + animated launcher cradle
     ShipMeshFactory.ts    hull dispatch + shared finishing pass
     ShipMeshAudit.ts      geometry-level connected-component QA
     CockpitMesh.ts        first-person interior built around the eye point
@@ -173,6 +178,8 @@ test/
     preferences.mjs       real menu/hangar preference lifecycle + write-count probe
     hangar.mjs            hangar geometry, crafting and contact UI
     world.mjs             peace/trade/planet persistence/jump flow + turret clearance
+    planetary-bases.mjs   base diversity, crawler behavior and single-hit regression
+    planet-combat-stability.mjs  max-pool surface stress + heap/WebGL cleanup audit
     targeting.mjs         pursuit/contact policy, ordnance warnings/range and flight key chord
     capital.mjs           carrier battery, preview and annihilator probes
     capital-retaliation.mjs  non-missile wake, pursuit, mount-sync and retaliation probe
@@ -316,7 +323,7 @@ See `test/visual/run.mjs`, `src/game/TestScenes.ts`, and
 `src/game/test-scenes/`. Deterministic because:
 seeded Rng, `GameLoop.stepManual` (no wall clock), frozen CSS animations
 (injected style pauses everything at t=1s), SwiftShader software GL in headless
-Chromium. Same machine → 0.000% pixel diff. The current 44 scenes cover world art,
+Chromium. Same machine → 0.000% pixel diff. The current 46 scenes cover world art,
 ships, combat/FX, hostile and civilian HUD targeting, every major screen,
 caves/bases/wrecks, trade, fleet connectivity, cloak, controls, enemy ordnance,
 missile warnings, volumetric destruction, the carrier superweapon, and phone

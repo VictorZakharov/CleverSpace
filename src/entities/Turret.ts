@@ -6,6 +6,7 @@ import {
 } from '../combat/WeaponDefs';
 import { Rng } from '../core/Rng';
 import { Ship } from './Ship';
+import type { ShipKind } from './ShipMesh';
 
 const toPlayer = new Vector3();
 const fwd = new Vector3();
@@ -52,6 +53,8 @@ export class Turret extends Ship {
   readonly stats: typeof TURRET_WEAPON_STATS[TurretWeapon];
   /** Current world-space outward normal for carrier mounts. */
   readonly mountNormal: Vector3 | null;
+  /** Planetary installation ownership; null for asteroid and carrier mounts. */
+  surfaceBaseId: number | null = null;
   /** Seconds of EMP stun remaining. */
   stunTimer = 0;
   private fireTimer: number;
@@ -60,12 +63,17 @@ export class Turret extends Ship {
   private homingRetaliation = false;
   private readonly capitalRotation = new Quaternion();
 
-  constructor(rng: Rng, weapon: TurretWeapon = 'bolt', mountNormal: Vector3 | null = null) {
+  constructor(
+    rng: Rng,
+    weapon: TurretWeapon = 'bolt',
+    mountNormal: Vector3 | null = null,
+    meshKind?: ShipKind,
+  ) {
     const stats = TURRET_WEAPON_STATS[weapon];
     super(
-      weapon === 'bolt'
+      meshKind ?? (weapon === 'bolt'
         ? 'turret'
-        : weapon === 'autogun' ? 'autogun-turret' : 'rocket-turret',
+        : weapon === 'autogun' ? 'autogun-turret' : 'rocket-turret'),
       stats.hull,
       stats.shield,
     );
@@ -95,6 +103,19 @@ export class Turret extends Ship {
 
   cancelHomingRetaliation(): void {
     this.homingRetaliation = false;
+  }
+
+  /** LOS range that can raise a planetary installation alarm. */
+  get detectionRange(): number {
+    return this.stats.range;
+  }
+
+  detectedSurfaceBase(target: Vector3, hasLineOfSight: boolean): number | null {
+    if (
+      !hasLineOfSight || this.surfaceBaseId === null ||
+      this.position.distanceToSquared(target) > this.detectionRange ** 2
+    ) return null;
+    return this.surfaceBaseId;
   }
 
   /** Follow carrier motion without discarding the battery's independent aim. */
@@ -131,8 +152,9 @@ export class Turret extends Ship {
     dt: number,
     playerPos: Vector3,
     playerAlive: boolean,
-    fire: (t: Turret) => void,
+    fire: (t: Turret) => boolean | void,
     playerVisible = true,
+    hasLineOfSight = playerVisible,
   ): void {
     if (!this.alive || !playerAlive) return;
     if (this.stunTimer > 0) {
@@ -140,7 +162,7 @@ export class Turret extends Ship {
       this.updateCommon(dt);
       return;
     }
-    if (!playerVisible || !this.canTraverse(playerPos)) {
+    if (!playerVisible || !hasLineOfSight || !this.canTraverse(playerPos)) {
       this.updateCommon(dt);
       return;
     }

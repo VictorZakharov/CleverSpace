@@ -3,7 +3,7 @@ import type { Group, Sprite, Vector3 } from 'three';
 export type ShipKind =
   | 'kestrel' | 'vanta' | 'aegis'
   | 'raider' | 'brute' | 'bomber' | 'turret' | 'autogun-turret' | 'rocket-turret'
-  | 'hauler' | 'capital';
+  | 'ground-launcher' | 'hauler' | 'capital';
 
 export interface ShipHitBox {
   /** Ship-local center of a tight projectile/LOS volume. */
@@ -46,6 +46,7 @@ export const STYLES: Record<ShipKind, ShipStyle> = {
   turret: { hull: 0x565c64, panel: 0x33383e, accent: 0xff3b30, engine: 0xff5a2a, canopy: 0xff8080 },
   'autogun-turret': { hull: 0x555b63, panel: 0x30363d, accent: 0xffc85a, engine: 0xff6a2a, canopy: 0xffd98a },
   'rocket-turret': { hull: 0x59525f, panel: 0x302d36, accent: 0xff8a32, engine: 0xff5a2a, canopy: 0xffb070 },
+  'ground-launcher': { hull: 0x626c5d, panel: 0x353d35, accent: 0xff5a32, engine: 0xff7a2a, canopy: 0xffb35f },
   hauler: { hull: 0x8f8c80, panel: 0x55544b, accent: 0x9fdcff, engine: 0x7ac9ff, canopy: 0xbfe8ff },
   capital: { hull: 0x3f4652, panel: 0x282d36, accent: 0xff3b30, engine: 0xff6a2a, canopy: 0xff9090 },
 };

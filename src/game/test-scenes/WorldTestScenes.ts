@@ -1,4 +1,5 @@
 import { Vector3 } from 'three';
+import { GroundRocketLauncher } from '../../entities/GroundRocketLauncher';
 import { spawnAsteroidChildren } from '../../world/AsteroidBreakup';
 import { buildShipMesh } from '../../entities/ShipMesh';
 import { Game } from '../Game';
@@ -160,7 +161,7 @@ export function stageWreck(game: Game): void {
 export function stagePlanet(game: Game): void {
   game.startMission();
   game.enterPlanet(0);
-  const cave = game.surface!.caveLandmarks[0];
+  const cave = game.surface!.caveLandmarks[1] ?? game.surface!.caveLandmarks[0];
   game.player.object.position.copy(cave.approach);
   game.player.faceToward(cave.route[1]);
   game.chaseCam.snapTo(game.player.object);
@@ -172,19 +173,86 @@ export function stagePlanet(game: Game): void {
 export function stageBase(game: Game): void {
   game.startMission();
   game.enterPlanet(0);
+  game.state = 'test';
+  game.hud.setVisible(false);
   const landmarks = game.surface!.baseLandmarks;
   const base = landmarks.find((landmark) => landmark.kind === 'compound') ?? landmarks[0];
+  for (const enemy of game.enemies) {
+    enemy.object.visible = enemy.parkedAtBase && enemy.surfaceBaseId === base.baseId;
+  }
   const center = base.center;
-  game.player.object.position.set(center.x + 110, center.y + 26, center.z + 95);
+  game.player.object.position.set(center.x + 108, center.y + 22, center.z + 122);
   game.player.faceToward(center);
-  game.chaseCam.snapTo(game.player.object);
-  steps(game, 100);
-  game.state = 'test';
-  game.hud.clearComms();
+  game.surface!.updateRepairPadIndicators(1 / 60, game.player.position, () => true);
+  for (let frame = 0; frame < 60; frame++) {
+    game.surface!.updateRepairPadIndicators(1 / 60, game.player.position, () => false, base.baseId);
+  }
   const camera = game.chaseCam.camera;
-  camera.position.set(center.x + 62, center.y + 34, center.z + 104);
-  camera.lookAt(center.x, center.y + 8, center.z);
-  steps(game, 2);
+  camera.position.set(center.x + 142, center.y + 42, center.z + 154);
+  camera.lookAt(center.x, center.y + 18, center.z);
+  steps(game, 4);
+}
+
+/** Optional airborne base beauty shot with the terrain relief visible below. */
+export function stageSkybase(game: Game): void {
+  game.startMission();
+  let station: { center: Vector3 } | null = null;
+  for (let index = 0; index < game.sector.planets.length; index++) {
+    game.enterPlanet(index);
+    station = game.surface!.hoverBaseLandmarks[0] ?? null;
+    if (station) break;
+    game.exitPlanet();
+  }
+  if (!station) throw new Error('skybase scene expects the seeded planet to roll a station');
+  game.state = 'test';
+  game.hud.setVisible(false);
+  const center = station.center;
+  game.player.object.position.copy(center).add(new Vector3(82, 3, 102));
+  game.player.faceToward(center);
+  game.player.throttle = 0.55;
+  const camera = game.chaseCam.camera;
+  camera.position.copy(center).add(new Vector3(142, 55, 166));
+  camera.lookAt(center.x, center.y + 2, center.z);
+  steps(game, 4);
+}
+
+/** Player-perspective inspection of a real incoming eight-rocket corkscrew. */
+export function stageGroundLauncher(game: Game): void {
+  game.startMission();
+  game.enterPlanet(0);
+  game.state = 'test';
+  game.hud.setVisible(false);
+  game.player.object.visible = false;
+  for (const enemy of game.enemies) enemy.object.visible = false;
+  const launcher = game.turrets.find(
+    (turret): turret is GroundRocketLauncher => turret instanceof GroundRocketLauncher,
+  );
+  if (!launcher) throw new Error('ground-launcher scene expects a surface crawler');
+  for (const turret of game.turrets) turret.object.visible = turret === launcher;
+  const center = launcher.position;
+  const aim = center.clone().add(new Vector3(36, 42, -100));
+  game.player.position.copy(aim);
+  for (let frame = 0; frame < 150; frame++) {
+    launcher.update(1 / 60, aim, true, () => false, true, false);
+  }
+  const origin = new Vector3();
+  const direction = new Vector3();
+  const firstShot = launcher.totalShotsFired;
+  for (let frame = 0; frame < 120 && launcher.totalShotsFired < firstShot + 8; frame++) {
+    launcher.update(1 / 60, aim, true, () => {
+      const phase = launcher.rocketLaunch(origin, direction);
+      game.projectiles.spawnEnemyRocket(origin, direction, game.player, 'salvo', 1, phase);
+      return true;
+    }, true, true);
+    game.projectiles.update(1 / 60, [], null, [], () => {});
+  }
+  for (let frame = 0; frame < 10; frame++) {
+    game.projectiles.update(1 / 60, [], null, [], () => {});
+  }
+  const camera = game.chaseCam.camera;
+  camera.position.copy(center).add(new Vector3(55, 70, -150));
+  camera.lookAt(launcher.position.x, launcher.position.y + 6, launcher.position.z);
+  steps(game, 3);
 }
 
 /** All playable hulls from the rear-quarter angle used by mesh audits. */

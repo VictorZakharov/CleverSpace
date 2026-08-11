@@ -198,8 +198,8 @@ class SurfaceCaveBuilder {
     // A chain of small spheres sits OUTSIDE the rendered arch. Each sphere's
     // inner tangent nearly coincides with the visible rock, replacing the old
     // three giant overlapping balls whose invisible volume filled the cave.
-    const colliderRadius = 5;
-    const colliderSpacing = 6.5;
+    const colliderRadius = 8.5;
+    const colliderSpacing = 7.5;
     const shellRings = Math.max(
       28,
       Math.ceil(pathLength / colliderSpacing),

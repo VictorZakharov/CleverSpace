@@ -3,11 +3,13 @@ import { AudioEngine } from '../audio/AudioEngine';
 import { ProjectileHit, ProjectileSystem } from '../combat/ProjectileSystem';
 import { traceCapitalBeam } from '../combat/CapitalBeam';
 import { capitalBatteryHullDamage } from '../combat/CapitalSubsystemDamage';
+import { armCapitalHomingRetaliation } from '../combat/CapitalRetaliation';
 import { ENEMY_AUTOGUN, ENEMY_BOLT_COLOR } from '../combat/WeaponDefs';
 import { EventBus } from '../core/EventBus';
 import { Rng } from '../core/Rng';
 import { CapitalBeamShot, CapitalShip } from '../entities/CapitalShip';
 import { EnemyShip } from '../entities/EnemyShip';
+import { GroundRocketLauncher } from '../entities/GroundRocketLauncher';
 import { NeutralShip } from '../entities/NeutralShip';
 import { PickupSystem, ResourceType } from '../entities/PickupSystem';
 import { PlayerShip } from '../entities/PlayerShip';
@@ -28,6 +30,7 @@ import { Inventory } from './Inventory';
 import { Quest, QuestSystem } from './Quests';
 import { pointInsideBody, rayHitsBodyBox } from './WorldCollision';
 import { resolveEnemySurfaceCollision as resolveSurfaceEnemy } from './SurfaceEnemyCollision';
+import { alertSurfaceBaseDefenders } from './SurfaceBaseSystems';
 
 const pushDir = new Vector3();
 const boxClosest = new Vector3();
@@ -97,6 +100,11 @@ export class GameCombat {
   private readonly playerSurfaceBodies: AsteroidBody[] = [];
 
   constructor(private readonly host: GameCombatHost) {}
+
+  /** Wake only the defenders authored for one planetary installation. */
+  alertSurfaceBase(baseId: number): number {
+    return alertSurfaceBaseDefenders(this.host.enemies, baseId);
+  }
 
   collect(type: ResourceType): void {
     this.host.inventory.add(type);
@@ -216,7 +224,7 @@ export class GameCombat {
     } else if (hit.ship instanceof CapitalShip) {
       if (hit.faction === 'player' && hit.damage > 0 && !result.died) {
         hit.ship.wakeForAttack();
-        this.armCapitalHomingRetaliation(hit.ship);
+        armCapitalHomingRetaliation(hit.ship, host.player, host.capitalTurrets);
       }
       host.hud.flashHitmarker(result.died);
       if (result.died) this.killCapital(hit.ship);
@@ -226,23 +234,6 @@ export class GameCombat {
       if (result.died) this.killNeutral(hit.ship);
       else showProjectileImpact(host.explosions, hit.point, hit.wasMissile, 1.1, 0.4);
     }
-  }
-
-  private armCapitalHomingRetaliation(capital: CapitalShip): void {
-    const direction = fireDirection.copy(this.host.player.position)
-      .sub(capital.position)
-      .normalize();
-    let selected: Turret | null = null;
-    let bestFacing = -Infinity;
-    for (const turret of this.host.capitalTurrets) {
-      turret.cancelHomingRetaliation();
-      if (!turret.alive || turret.weapon !== 'homing' || !turret.mountNormal) continue;
-      const facing = turret.mountNormal.dot(direction);
-      if (facing <= bestFacing + 1e-6) continue;
-      selected = turret;
-      bestFacing = facing;
-    }
-    selected?.armHomingRetaliation();
   }
 
   private killCapital(capital: CapitalShip): void {
@@ -352,11 +343,26 @@ export class GameCombat {
     return true;
   }
 
-  turretFire(turret: Turret): void {
+  turretFire(turret: Turret): boolean {
     const host = this.host;
+    if (turret instanceof GroundRocketLauncher) {
+      const spiralPhase = turret.rocketLaunch(fireMuzzle, fireDirection);
+      if (!this.hasLineOfSight(fireMuzzle, host.player.position)) return false;
+      host.projectiles.spawnEnemyRocket(
+        fireMuzzle,
+        fireDirection,
+        host.player,
+        'salvo',
+        host.difficulty.enemyDamage,
+        spiralPhase,
+      );
+      host.audio.enemyMissileLaunch();
+      if (turret.surfaceBaseId !== null) this.alertSurfaceBase(turret.surfaceBaseId);
+      return true;
+    }
     fireMuzzle.copy(turret.position);
     if (turret.mountNormal) fireMuzzle.addScaledVector(turret.mountNormal, 3);
-    if (!this.hasLineOfSight(fireMuzzle, host.player.position)) return;
+    if (!this.hasLineOfSight(fireMuzzle, host.player.position)) return false;
     turret.forward(fireDirection);
     for (const gunpoint of turret.gunpoints) {
       fireMuzzle.copy(gunpoint).applyQuaternion(turret.object.quaternion).add(turret.position);
@@ -388,6 +394,8 @@ export class GameCombat {
       if (turret.weapon === 'autogun') host.audio.enemyAutogun();
       else host.audio.laser(0.5);
     }
+    if (turret.surfaceBaseId !== null) this.alertSurfaceBase(turret.surfaceBaseId);
+    return true;
   }
 
   /** Resolve the committed carrier ray and return its visually reached range. */

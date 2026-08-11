@@ -1,15 +1,20 @@
 import {
   BoxGeometry,
+  BufferGeometry,
   Color,
+  ConeGeometry,
+  CylinderGeometry,
+  Float32BufferAttribute,
   Group,
   Mesh,
   MeshBasicMaterial,
   Vector3,
 } from 'three';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { Ship } from '../entities/Ship';
 import { ParticleSystem } from '../fx/ParticleSystem';
 import { AsteroidBody } from '../world/AsteroidField';
-import { ENEMY_ROCKETS, EnemyRocketMode, MISSILE } from './WeaponDefs';
+import { ENEMY_ROCKETS, EnemyOrdnanceMode, MISSILE } from './WeaponDefs';
 import { segmentExitsAsteroidBody, segmentHitsAsteroid } from './ProjectileCollision';
 
 export type Faction = 'player' | 'enemy';
@@ -52,6 +57,8 @@ export interface ProjectileSnapshot {
   homing: boolean;
   hasTarget: boolean;
   speed: number;
+  spiral: boolean;
+  trail: boolean;
 }
 
 interface Projectile {
@@ -72,6 +79,15 @@ interface Projectile {
   distanceTravelled: number;
   trailColor: Color;
   trailTimer: number;
+  trailSize: number;
+  spiral: boolean;
+  spiralAge: number;
+  spiralPhase: number;
+  spiralRadius: number;
+  spiralRate: number;
+  spiralCenter: Vector3;
+  spiralRight: Vector3;
+  spiralUp: Vector3;
   /** Monotonic HUD countdown once this seeker enters the imminent window. */
   warningEta: number;
 }
@@ -83,8 +99,87 @@ const closestNormal = new Vector3();
 const bestNormal = new Vector3();
 const lookPoint = new Vector3();
 const steer = new Vector3();
+const trailPosition = new Vector3();
 const trailVel = new Vector3();
 const threatToPlayer = new Vector3();
+const stepDelta = new Vector3();
+const spiralAxis = new Vector3();
+const spiralReference = new Vector3(0, 1, 0);
+const spiralFallback = new Vector3(1, 0, 0);
+
+function vertexShaded<T extends BufferGeometry>(
+  geometry: T,
+  shadeAt: (z: number) => number,
+): T {
+  const position = geometry.attributes.position;
+  const colors = new Float32Array(position.count * 3);
+  for (let index = 0; index < position.count; index++) {
+    const shade = shadeAt(position.getZ(index));
+    colors.fill(shade, index * 3, index * 3 + 3);
+  }
+  geometry.setAttribute('color', new Float32BufferAttribute(colors, 3));
+  return geometry;
+}
+
+function vertexColored<T extends BufferGeometry>(geometry: T, color: Color): T {
+  const position = geometry.attributes.position;
+  const colors = new Float32Array(position.count * 3);
+  for (let index = 0; index < position.count; index++) {
+    colors[index * 3] = color.r;
+    colors[index * 3 + 1] = color.g;
+    colors[index * 3 + 2] = color.b;
+  }
+  geometry.setAttribute('color', new Float32BufferAttribute(colors, 3));
+  return geometry;
+}
+
+/** One draw-call rocket silhouette: pointed nose, fuselage, fins, and rear exhaust. */
+function buildSalvoRocketGeometry(): BufferGeometry {
+  const parts: BufferGeometry[] = [
+    vertexColored(
+      new CylinderGeometry(0.32, 0.4, 0.72, 8)
+        .rotateX(Math.PI / 2)
+        .translate(0, 0, -0.03),
+      new Color(0x4b5961),
+    ),
+    vertexColored(
+      new ConeGeometry(0.32, 0.28, 8)
+        .rotateX(Math.PI / 2)
+        .translate(0, 0, 0.47),
+      new Color(0x27343b),
+    ),
+    vertexColored(
+      new CylinderGeometry(0.405, 0.405, 0.075, 8)
+        .rotateX(Math.PI / 2)
+        .translate(0, 0, 0.05),
+      new Color(0xb62b12),
+    ),
+    vertexColored(
+      new BoxGeometry(1.42, 0.1, 0.34).translate(0, 0, -0.26),
+      new Color(0xaab5ba),
+    ),
+    vertexColored(
+      new BoxGeometry(0.1, 1.42, 0.34).translate(0, 0, -0.26),
+      new Color(0xaab5ba),
+    ),
+    vertexColored(
+      new CylinderGeometry(0.22, 0.28, 0.18, 8)
+        .rotateX(Math.PI / 2)
+        .translate(0, 0, -0.48),
+      new Color(0xff4b10).multiplyScalar(2.4),
+    ),
+    vertexColored(
+      new ConeGeometry(0.23, 0.72, 8)
+        .rotateX(-Math.PI / 2)
+        .translate(0, 0, -0.91),
+      new Color(0xff7a18).multiplyScalar(2.8),
+    ),
+  ];
+  const merged = mergeGeometries(parts, false);
+  for (const part of parts) part.dispose();
+  if (!merged) throw new Error('Unable to assemble salvo rocket geometry');
+  return merged;
+}
 
 /**
  * Pooled projectiles (bolts + homing missiles) with swept segment-vs-sphere
@@ -96,7 +191,12 @@ export class ProjectileSystem {
   readonly group = new Group();
   private readonly pool: Projectile[] = [];
   private readonly bodyCandidates: AsteroidBody[] = [];
-  private readonly unitBox = new BoxGeometry(1, 1, 1);
+  private readonly unitBox = vertexShaded(new BoxGeometry(1, 1, 1), () => 1);
+  private readonly missileBody = vertexShaded(
+    new CylinderGeometry(0.45, 0.75, 1, 6, 3).rotateX(Math.PI / 2),
+    (z) => z < -0.34 ? 1 : z > 0.34 ? 0.3 : 0.04,
+  );
+  private readonly salvoRocketBody = buildSalvoRocketGeometry();
   private readonly threat: MissileThreat = {
     locked: false,
     imminent: false,
@@ -109,7 +209,11 @@ export class ProjectileSystem {
     capacity = 320,
   ) {
     for (let i = 0; i < capacity; i++) {
-      const material = new MeshBasicMaterial({ color: 0xffffff, toneMapped: false });
+      const material = new MeshBasicMaterial({
+        color: 0xffffff,
+        toneMapped: false,
+        vertexColors: true,
+      });
       const mesh = new Mesh(this.unitBox, material);
       mesh.visible = false;
       this.group.add(mesh);
@@ -131,6 +235,15 @@ export class ProjectileSystem {
         distanceTravelled: 0,
         trailColor: new Color(),
         trailTimer: 0,
+        trailSize: 1.6,
+        spiral: false,
+        spiralAge: 0,
+        spiralPhase: 0,
+        spiralRadius: 0,
+        spiralRate: 0,
+        spiralCenter: new Vector3(),
+        spiralRight: new Vector3(),
+        spiralUp: new Vector3(),
         warningEta: Infinity,
       });
     }
@@ -142,6 +255,7 @@ export class ProjectileSystem {
     p.active = true;
     p.kind = 'bolt';
     p.homing = false;
+    p.spiral = false;
     p.target = null;
     p.damage = s.damage;
     p.faction = s.faction;
@@ -150,6 +264,7 @@ export class ProjectileSystem {
     p.distanceTravelled = 0;
     p.velocity.copy(s.direction).normalize().multiplyScalar(s.speed);
     p.material.color.copy(s.color).multiplyScalar(3.2); // HDR — bloom picks it up
+    p.mesh.geometry = this.unitBox;
     p.mesh.visible = true;
     p.mesh.position.copy(s.position);
     p.mesh.scale.set(s.boltWidth, s.boltWidth, s.boltLength);
@@ -174,8 +289,9 @@ export class ProjectileSystem {
     position: Vector3,
     direction: Vector3,
     target: Ship,
-    mode: EnemyRocketMode,
+    mode: EnemyOrdnanceMode,
     damageScale = 1,
+    spiralPhase = 0,
   ): void {
     const def = ENEMY_ROCKETS[mode];
     this.spawnOrdnance(position, direction, mode === 'homing' ? target : null, 'enemy', {
@@ -188,6 +304,12 @@ export class ProjectileSystem {
       maxDistance: def.maxDistance,
       color: def.color,
       homing: mode === 'homing',
+      brightness: mode === 'salvo' ? 1 : 2.8,
+      width: mode === 'salvo' ? 1.3 : 0.42,
+      length: mode === 'salvo' ? 5 : 2.2,
+      trailSize: mode === 'salvo' ? 0.9 : 1.6,
+      spiralPhase: mode === 'salvo' ? spiralPhase : undefined,
+      salvoStyle: mode === 'salvo',
     });
   }
 
@@ -206,6 +328,12 @@ export class ProjectileSystem {
       maxDistance: number;
       color: Color;
       homing: boolean;
+      brightness?: number;
+      width?: number;
+      length?: number;
+      trailSize?: number;
+      spiralPhase?: number;
+      salvoStyle?: boolean;
     },
   ): void {
     const p = this.acquire();
@@ -213,6 +341,7 @@ export class ProjectileSystem {
     p.active = true;
     p.kind = 'missile';
     p.homing = def.homing;
+    p.spiral = def.spiralPhase !== undefined;
     p.target = target;
     p.damage = def.damage;
     p.faction = faction;
@@ -223,15 +352,32 @@ export class ProjectileSystem {
     p.maxDistance = def.maxDistance;
     p.distanceTravelled = 0;
     p.trailTimer = 0;
+    p.trailSize = def.trailSize ?? 1.6;
     p.warningEta = Infinity;
     p.velocity.copy(direction).normalize().multiplyScalar(def.speed);
-    p.material.color.copy(def.color).multiplyScalar(2.8);
-    p.trailColor.copy(def.color);
+    if (def.salvoStyle) p.material.color.setRGB(1, 1, 1);
+    else p.material.color.copy(def.color).multiplyScalar(def.brightness ?? 2.8);
+    p.trailColor.copy(def.color).multiplyScalar(def.salvoStyle ? 0.9 : 1);
+    p.mesh.geometry = def.salvoStyle ? this.salvoRocketBody : this.missileBody;
     p.mesh.visible = true;
     p.mesh.position.copy(position);
-    const width = faction === 'enemy' ? 0.42 : 0.3;
-    p.mesh.scale.set(width, width, faction === 'enemy' ? 2.2 : 1.6);
+    const width = def.width ?? (faction === 'enemy' ? 0.42 : 0.3);
+    p.mesh.scale.set(width, width, def.length ?? (faction === 'enemy' ? 2.2 : 1.6));
     p.mesh.lookAt(newPos.copy(position).add(direction));
+    p.spiralAge = 0;
+    p.spiralPhase = def.spiralPhase ?? 0;
+    p.spiralRadius = p.spiral ? 1.6 : 0;
+    p.spiralRate = p.spiral ? 7.2 : 0;
+    p.spiralCenter.copy(position);
+    if (p.spiral) {
+      spiralAxis.copy(direction).normalize();
+      p.spiralRight.crossVectors(spiralAxis, spiralReference);
+      if (p.spiralRight.lengthSq() < 1e-4) {
+        p.spiralRight.crossVectors(spiralAxis, spiralFallback);
+      }
+      p.spiralRight.normalize();
+      p.spiralUp.crossVectors(p.spiralRight, spiralAxis).normalize();
+    }
   }
 
   update(
@@ -275,32 +421,51 @@ export class ProjectileSystem {
         }
       }
 
-      if (p.kind === 'missile') {
+      if (p.kind === 'missile' && p.trailSize > 0) {
         // Fixed-rate exhaust keeps missile cost stable across frame rates.
         p.trailTimer -= dt;
         if (p.trailTimer <= 0) {
-          p.trailTimer += 0.035;
+          p.trailTimer += p.spiral ? 0.025 : 0.035;
+          const speed = p.velocity.length();
+          trailPosition.copy(p.mesh.position);
+          if (speed > 1e-5) {
+            trailPosition.addScaledVector(
+              p.velocity,
+              -(p.spiral ? 5.2 : 1.1) / speed,
+            );
+          }
           trailVel.set(0, 0, 0);
           this.particles.spawn({
-            position: p.mesh.position,
+            position: trailPosition,
             velocity: trailVel,
             color: p.trailColor,
-            size: 1.6,
-            life: 0.45,
+            size: p.trailSize,
+            life: p.spiral ? 0.24 : 0.45,
           });
         }
       }
 
-      newPos.copy(p.mesh.position).addScaledVector(p.velocity, dt);
+      if (p.spiral) {
+        p.spiralAge += dt;
+        p.spiralPhase += p.spiralRate * dt;
+        p.spiralCenter.addScaledVector(p.velocity, dt);
+        const radius = p.spiralRadius * Math.min(1, p.spiralAge / 0.22);
+        newPos.copy(p.spiralCenter)
+          .addScaledVector(p.spiralRight, Math.cos(p.spiralPhase) * radius)
+          .addScaledVector(p.spiralUp, Math.sin(p.spiralPhase) * radius);
+      } else {
+        newPos.copy(p.mesh.position).addScaledVector(p.velocity, dt);
+      }
+      stepDelta.copy(newPos).sub(p.mesh.position);
       let expiresAtRange = false;
       if (p.kind === 'missile') {
-        const stepDistance = p.velocity.length() * dt;
+        const stepDistance = stepDelta.length();
         const remainingDistance = Math.max(0, p.maxDistance - p.distanceTravelled);
         if (stepDistance >= remainingDistance) {
           if (stepDistance > 1e-8) {
             newPos.copy(p.mesh.position).addScaledVector(
-              p.velocity,
-              remainingDistance / stepDistance * dt,
+              stepDelta,
+              remainingDistance / stepDistance,
             );
           }
           p.distanceTravelled = p.maxDistance;
@@ -390,8 +555,9 @@ export class ProjectileSystem {
         continue;
       }
 
+      stepDelta.copy(newPos).sub(p.mesh.position);
       p.mesh.position.copy(newPos);
-      p.mesh.lookAt(lookPoint.copy(newPos).add(p.velocity));
+      p.mesh.lookAt(lookPoint.copy(newPos).add(stepDelta));
     }
   }
 
@@ -473,6 +639,8 @@ export class ProjectileSystem {
         homing: p.homing,
         hasTarget: p.target !== null,
         speed: p.velocity.length(),
+        spiral: p.spiral,
+        trail: p.trailSize > 0,
       }));
   }
 

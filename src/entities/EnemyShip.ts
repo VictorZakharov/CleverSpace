@@ -56,6 +56,7 @@ const lookMatrixUp = new Vector3(0, 1, 0);
 const sideHint = new Vector3(1, 0, 0);
 const fwd = new Vector3();
 const leadPoint = new Vector3();
+const PARKED_DETECT_RANGE = 420;
 
 /**
  * AI-piloted ship. Steering is quaternion slerp toward the brain's target at
@@ -70,11 +71,14 @@ export class EnemyShip extends Ship {
   readonly autoGun: boolean;
   /** True for dispatched hunter wings (vs. sector-resident patrols). */
   hunter = false;
+  /** Planetary installation ownership; null for sector and hunter craft. */
+  readonly surfaceBaseId: number | null;
   /** Seconds of EMP stun remaining — no steering, no firing. */
   stunTimer = 0;
   private readonly brain: EnemyBrain;
   private fireTimer: number;
   private rocketMuzzleIndex = 0;
+  private parked = false;
 
   constructor(
     kind: EnemyKind,
@@ -83,6 +87,7 @@ export class EnemyShip extends Ship {
     toughness = 1,
     waypoints: Vector3[] = [],
     weaponMode?: EnemyWeaponMode,
+    surfaceBaseId: number | null = null,
   ) {
     const stats = ENEMY_STATS[kind];
     super(kind, stats.hull * toughness, stats.shield * toughness, 4, 5);
@@ -96,18 +101,42 @@ export class EnemyShip extends Ship {
       weaponMode === 'autogun' ||
       (weaponMode === undefined && kind === 'raider' && rng.chance(0.35))
     );
+    this.surfaceBaseId = surfaceBaseId;
     if (this.autoGun) this.addAutogunCluster();
     this.brain = new EnemyBrain(rng, aggression, waypoints);
     this.fireTimer = rng.range(0.3, 1.2);
   }
 
   notifyDamaged(): void {
+    if (this.parked) {
+      this.notifyBaseAlert();
+      return;
+    }
     this.brain.onDamaged();
+  }
+
+  /** Keep a garrison hull cold on its authored deck until contact. */
+  parkAtBase(): void {
+    this.parked = true;
+    this.velocity.set(0, 0, 0);
+    this.throttle = 0;
+    this.glowDim = 0.18;
+  }
+
+  /** Wake both parked garrisons and patrolling wings from a local base alarm. */
+  notifyBaseAlert(): void {
+    this.parked = false;
+    this.glowDim = 1;
+    this.brain.engage();
+  }
+
+  get parkedAtBase(): boolean {
+    return this.parked;
   }
 
   /** Engaged AI is actively chasing/fighting rather than following a patrol route. */
   get pursuingPlayer(): boolean {
-    return this.brain.state !== 'patrol';
+    return !this.parked && this.brain.state !== 'patrol';
   }
 
   /** Alternate single-seeker launches across the bomber's visible hardpoints. */
@@ -136,8 +165,19 @@ export class EnemyShip extends Ship {
       return;
     }
 
-    // Lead the player based on projectile flight time.
     const dist = this.position.distanceTo(playerPos);
+    if (this.parked) {
+      if (playerVisible && dist <= PARKED_DETECT_RANGE) {
+        this.notifyBaseAlert();
+      } else {
+        this.velocity.set(0, 0, 0);
+        this.throttle = 0;
+        this.updateCommon(dt);
+        return;
+      }
+    }
+
+    // Lead the player based on projectile flight time.
     const projectileSpeed = this.rocketMode
       ? ENEMY_ROCKETS[this.rocketMode].maxSpeed
       : this.autoGun

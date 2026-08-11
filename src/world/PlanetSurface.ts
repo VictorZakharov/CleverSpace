@@ -38,18 +38,30 @@ import { makeRingTexture } from './Planet';
 import { PlanetInfo } from './Sector';
 import { buildSurfaceBase } from './PlanetSurfaceBase';
 import { buildSurfaceCave } from './PlanetSurfaceCave';
+import { buildSurfaceHoverBase } from './PlanetSurfaceHoverBase';
 import type {
   BaseKind,
   CaveLandmark,
   CaveWaypoint,
+  GroundLauncherSpawn,
+  HoverBaseLandmark,
+  ParkedDefenderSpawn,
+  SurfaceBaseLandmark,
+  SurfaceRepairPad,
   SurfacePatrol,
   SurfaceStructureHost,
 } from './PlanetSurfaceStructures';
 import { displaceRock } from './PlanetSurfaceStructures';
 import { SurfaceBodyIndex } from './SurfaceBodyIndex';
+import { SurfaceRepairPadIndicators } from './SurfaceRepairPadIndicators';
 export type {
   BaseKind,
   CaveLandmark,
+  GroundLauncherSpawn,
+  HoverBaseLandmark,
+  ParkedDefenderSpawn,
+  SurfaceBaseLandmark,
+  SurfaceRepairPad,
   SurfacePatrol,
 } from './PlanetSurfaceStructures';
 
@@ -59,13 +71,24 @@ const obstacleBounds = new Box3();
 const obstacleCenter = new Vector3();
 const obstacleSize = new Vector3();
 const terrainProbe = new Vector3();
+const groundUnitCenter = new Vector3();
+const groundUnitBodies: AsteroidBody[] = [];
 const SURFACE_SIZE = 2600;
-const SURFACE_SEGMENTS = 180;
+const SURFACE_SEGMENTS = 210;
 
 const BASE_KINDS: BaseKind[] = ['compound', 'comm', 'depot', 'fortress'];
 
 interface Crater { x: number; z: number; r: number; depth: number }
-interface Mountain { x: number; z: number; r: number; h: number }
+interface Mountain {
+  x: number;
+  z: number;
+  rx: number;
+  rz: number;
+  angle: number;
+  phase: number;
+  h: number;
+}
+interface Valley extends Mountain {}
 
 /**
  * A landable planet surface — the "dungeon" the original Everspace never had.
@@ -85,7 +108,17 @@ export class PlanetSurface {
   /** Cave anchors for approach, traversal, and spawn-clearance regressions. */
   readonly caveLandmarks: CaveLandmark[] = [];
   /** Base anchors for the test harness (pad-level center + template). */
-  readonly baseLandmarks: { center: Vector3; kind: BaseKind }[] = [];
+  readonly baseLandmarks: SurfaceBaseLandmark[] = [];
+  /** Zero or one optional airborne station selected by the planet seed. */
+  readonly hoverBaseLandmarks: HoverBaseLandmark[] = [];
+  /** Mobile ground-defense starts, each leashed to its owning base. */
+  readonly groundLauncherSpawns: GroundLauncherSpawn[] = [];
+  /** Ships visibly parked on authored decks until their installation is alerted. */
+  readonly parkedDefenderSpawns: ParkedDefenderSpawn[] = [];
+  /** Functional H pads, keyed to the defenders that must be cleared first. */
+  readonly repairPads: SurfaceRepairPad[] = [];
+  readonly terrainMinHeight: number;
+  readonly terrainMaxHeight: number;
   /** Loot-only view avoids scanning thousands of static cave colliders per frame. */
   readonly interactionBodies: AsteroidBody[] = [];
   readonly staticBatchStats: SurfaceBatchStats;
@@ -95,9 +128,16 @@ export class PlanetSurface {
   private readonly seedC: number;
   private readonly craters: Crater[] = [];
   private readonly mountains: Mountain[] = [];
-  /** Flattened foundation discs blended into heightAt under each base. */
-  private readonly pads: { x: number; z: number; r: number; h: number }[] = [];
-  private readonly baseSites: { x: number; z: number; kind: BaseKind }[] = [];
+  private readonly valleys: Valley[] = [];
+  /** Level foundation terraces with a broad natural blend back into terrain. */
+  private readonly pads: { x: number; z: number; r: number; flatR: number; h: number }[] = [];
+  private readonly baseSites: { baseId: number; x: number; z: number; kind: BaseKind }[] = [];
+  private readonly hoverBaseSite: {
+    baseId: number;
+    x: number;
+    y: number;
+    z: number;
+  } | null;
   /** Gaussian pits carved into heightAt — the cave trenches live IN the
    *  heightfield, so terrain collision stays honest underground. */
   private readonly carves: { x: number; z: number; r: number; depth: number }[] = [];
@@ -111,39 +151,104 @@ export class PlanetSurface {
   private terrainHeights: Float32Array | null = null;
   private readonly bodyIndex = new SurfaceBodyIndex();
   private readonly localLights: SurfaceLocalLights;
+  private readonly repairPadIndicators: SurfaceRepairPadIndicators;
 
   constructor(rng: Rng, planet: PlanetInfo) {
     this.seedA = rng.range(0, 6.28);
     this.seedB = rng.range(0, 6.28);
     this.seedC = rng.range(0, 6.28);
     // Landmark features FIRST — heightAt depends on them.
-    for (let i = 0; i < rng.int(3, 5); i++) {
+    for (let i = 0; i < rng.int(4, 6); i++) {
       this.craters.push({
         x: rng.range(-1000, 1000),
         z: rng.range(-1000, 1000),
-        r: rng.range(90, 200),
-        depth: rng.range(25, 55),
+        r: rng.range(110, 250),
+        depth: rng.range(38, 88),
       });
     }
-    for (let i = 0; i < rng.int(2, 4); i++) {
+    for (let i = 0; i < rng.int(5, 8); i++) {
       this.mountains.push({
         x: rng.range(-1100, 1100),
         z: rng.range(-1100, 1100),
-        r: rng.range(160, 320),
-        h: rng.range(70, 150),
+        rx: rng.range(120, 260),
+        rz: rng.range(280, 540),
+        angle: rng.range(0, Math.PI),
+        phase: rng.range(0, Math.PI * 2),
+        h: rng.range(170, 380),
+      });
+    }
+    for (let i = 0; i < rng.int(3, 5); i++) {
+      this.valleys.push({
+        x: rng.range(-1050, 1050),
+        z: rng.range(-1050, 1050),
+        rx: rng.range(180, 350),
+        rz: rng.range(330, 620),
+        angle: rng.range(0, Math.PI),
+        phase: rng.range(0, Math.PI * 2),
+        h: rng.range(90, 220),
       });
     }
     // Base sites BEFORE terrain: each registers a flattened foundation pad in
     // heightAt, so installations sit on level ground instead of floating over
     // (or sinking into) bumpy terrain.
     const baseCount = rng.int(2, 3);
+    const availableBaseKinds = [...BASE_KINDS];
     for (let b = 0; b < baseCount; b++) {
-      const x = rng.range(-850, 850);
-      const z = rng.sign() * rng.range(300, 900);
+      let x = 0;
+      let z = 0;
+      for (let attempt = 0; attempt < 30; attempt++) {
+        x = rng.range(-900, 900);
+        z = rng.range(-900, 900);
+        if (
+          this.baseSites.every(
+            (site) => (site.x - x) ** 2 + (site.z - z) ** 2 > 470 ** 2,
+          )
+        ) break;
+      }
       const h = this.heightAt(x, z);
-      this.baseSites.push({ x, z, kind: rng.pick(BASE_KINDS) });
-      this.pads.push({ x, z, r: 95, h });
+      const kind = rng.pick(availableBaseKinds);
+      availableBaseKinds.splice(availableBaseKinds.indexOf(kind), 1);
+      this.baseSites.push({ baseId: b, x, z, kind });
+      // The fortified square reaches farther at its corners than the original
+      // compact hub. Keep the complete wall footprint level, then blend broad
+      // earthworks back into the surrounding terrain.
+      this.pads.push({ x, z, r: 250, flatR: 184, h });
     }
+
+    let hoverBaseSite: {
+      baseId: number;
+      x: number;
+      y: number;
+      z: number;
+    } | null = null;
+    if (rng.chance(0.62)) {
+      let x = 0;
+      let z = 0;
+      for (let attempt = 0; attempt < 30; attempt++) {
+        x = rng.range(-850, 850);
+        z = rng.range(-850, 850);
+        if (
+          this.baseSites.every(
+            (site) => (site.x - x) ** 2 + (site.z - z) ** 2 > 420 ** 2,
+          )
+        ) break;
+      }
+      let localPeak = this.heightAt(x, z);
+      for (let sample = 0; sample < 12; sample++) {
+        const angle = (sample / 12) * Math.PI * 2;
+        localPeak = Math.max(
+          localPeak,
+          this.heightAt(x + Math.cos(angle) * 105, z + Math.sin(angle) * 105),
+        );
+      }
+      hoverBaseSite = {
+        baseId: baseCount,
+        x,
+        y: localPeak + rng.range(185, 245),
+        z,
+      };
+    }
+    this.hoverBaseSite = hoverBaseSite;
     // Cave systems: BEFORE terrain build, plan each as a random walk of
     // waypoints descending UNDERGROUND; every waypoint carves a deep pit
     // into heightAt, and overlapping pits form a continuous buried trench.
@@ -181,8 +286,14 @@ export class PlanetSurface {
             (base) =>
               (waypoint.x - base.x) ** 2 +
                 (waypoint.z - base.z) ** 2 >
-              300 ** 2,
+              360 ** 2,
           ),
+        );
+        const clearOfHoverBase = !this.hoverBaseSite || candidate.every(
+          (waypoint) =>
+            (waypoint.x - this.hoverBaseSite!.x) ** 2 +
+              (waypoint.z - this.hoverBaseSite!.z) ** 2 >
+            260 ** 2,
         );
         const clearOfCaves = this.caveRuns.every(
           (other) =>
@@ -191,7 +302,7 @@ export class PlanetSurface {
             380 ** 2,
         );
         run = candidate;
-        if (inBounds && clearOfBases && clearOfCaves) break;
+        if (inBounds && clearOfBases && clearOfHoverBase && clearOfCaves) break;
       }
       // Sample the whole route, not just its control points. A curved spline
       // can bow well away from sparse Gaussian pits and leave a solid terrain
@@ -259,6 +370,8 @@ export class PlanetSurface {
       terrainHeights[i] = h;
       pos.setY(i, h);
     }
+    this.terrainMinHeight = minH;
+    this.terrainMaxHeight = maxH;
     this.terrainHeights = terrainHeights;
     for (let i = 0; i < pos.count; i++) {
       const x = pos.getX(i);
@@ -426,16 +539,39 @@ export class PlanetSurface {
       patrols: this.patrols,
       caveLandmarks: this.caveLandmarks,
       baseLandmarks: this.baseLandmarks,
+      hoverBaseLandmarks: this.hoverBaseLandmarks,
+      groundLauncherSpawns: this.groundLauncherSpawns,
+      parkedDefenderSpawns: this.parkedDefenderSpawns,
+      repairPads: this.repairPads,
       heightAt: (x, z) => this.heightAt(x, z),
       registerObstacle: (object, padding) => this.registerObstacle(object, padding),
       addCrystalFormation: (sourceRng, x, y, z) =>
         this.addCrystalFormation(sourceRng, x, y, z),
       addStash: (sourceRng, x, y, z) => this.addStash(sourceRng, x, y, z),
-      addTurretPost: (x, y, z, lookX, lookZ) =>
-        this.addTurretPost(x, y, z, lookX, lookZ),
+      addTurretPost: (x, y, z, lookX, lookZ, baseId) =>
+        this.addTurretPost(x, y, z, lookX, lookZ, baseId),
     };
     for (const site of this.baseSites) {
-      buildSurfaceBase(structureHost, rng, site.x, site.z, site.kind, planet);
+      buildSurfaceBase(
+        structureHost,
+        rng,
+        site.baseId,
+        site.x,
+        site.z,
+        site.kind,
+        planet,
+      );
+    }
+    if (this.hoverBaseSite) {
+      buildSurfaceHoverBase(
+        structureHost,
+        rng,
+        this.hoverBaseSite.baseId,
+        this.hoverBaseSite.x,
+        this.hoverBaseSite.y,
+        this.hoverBaseSite.z,
+        planet,
+      );
     }
 
     // ---- underground cave systems (trenches carved into heightAt) ----------
@@ -454,11 +590,22 @@ export class PlanetSurface {
     this.bodyIndex.rebuild(this.bodies);
     this.localLights = new SurfaceLocalLights(this.group, 2);
     this.staticBatchStats = batchSurfaceStatics(this.group, this.bodies);
+    this.repairPadIndicators = new SurfaceRepairPadIndicators(this.group, this.repairPads);
   }
 
   /** Select the two cave lights that can materially affect the current view. */
   updatePresentation(viewerPosition: Vector3): void {
     this.localLights.update(viewerPosition);
+  }
+
+  /** Animate the lock marker independently for every installation's H pad. */
+  updateRepairPadIndicators(
+    dt: number,
+    playerPosition: Vector3,
+    isLocked: (baseId: number) => boolean,
+    repairingBaseId: number | null = null,
+  ): void {
+    this.repairPadIndicators.update(dt, playerPosition, isLocked, repairingBaseId);
   }
 
   /** Broadphase candidates for a swept projectile or line-of-sight segment. */
@@ -538,16 +685,49 @@ export class PlanetSurface {
   /** Continuous source function sampled into the rendered terrain grid. */
   private analyticHeightAt(x: number, z: number): number {
     let h =
-      30 * Math.sin(x * 0.0035 + this.seedA) * Math.sin(z * 0.0032 + this.seedB) +
-      14 * Math.sin(x * 0.009 + z * 0.008 + this.seedC) +
-      6 * Math.sin(x * 0.028 - z * 0.021 + this.seedA * 2) +
-      40 * Math.sin(x * 0.0012 + this.seedB * 1.7) * Math.sin(z * 0.0014 + this.seedC * 0.8) +
-      2.4 * Math.sin(x * 0.07 + this.seedB * 3) * Math.sin(z * 0.09 + this.seedA * 2) +
-      1.2 * Math.sin(x * 0.16 - z * 0.14 + this.seedC * 3);
+      54 * Math.sin(x * 0.0028 + this.seedA) * Math.sin(z * 0.003 + this.seedB) +
+      28 * Math.sin(x * 0.0068 + z * 0.0054 + this.seedC) +
+      13 * Math.sin(x * 0.017 - z * 0.014 + this.seedA * 2) +
+      72 * Math.sin(x * 0.00105 + this.seedB * 1.7) * Math.sin(z * 0.00125 + this.seedC * 0.8) +
+      4.2 * Math.sin(x * 0.052 + this.seedB * 3) * Math.sin(z * 0.066 + this.seedA * 2) +
+      1.5 * Math.sin(x * 0.15 - z * 0.13 + this.seedC * 3);
     for (const m of this.mountains) {
       const dx = x - m.x;
       const dz = z - m.z;
-      h += m.h * Math.exp(-(dx * dx + dz * dz) / (m.r * m.r));
+      const cos = Math.cos(m.angle);
+      const sin = Math.sin(m.angle);
+      const across = dx * cos + dz * sin;
+      const along = -dx * sin + dz * cos;
+      const warpedAcross = across + Math.sin(along * 0.012 + m.phase) * m.rx * 0.24;
+      const q = (warpedAcross / m.rx) ** 2 + (along / m.rz) ** 2;
+      const peakChain =
+        0.74 +
+        0.18 * Math.sin(along * 0.019 + m.phase) +
+        0.08 * Math.sin(along * 0.047 - m.phase * 1.4);
+      const erosion =
+        1 +
+        0.08 * Math.sin(warpedAcross * 0.042 + along * 0.013 + m.phase) +
+        0.05 * Math.sin(warpedAcross * 0.081 - along * 0.026 - m.phase);
+      h += m.h * (
+        Math.exp(-q * 1.32) * peakChain * erosion +
+        Math.exp(-q * 0.32) * 0.19
+      );
+    }
+    for (const valley of this.valleys) {
+      const dx = x - valley.x;
+      const dz = z - valley.z;
+      const cos = Math.cos(valley.angle);
+      const sin = Math.sin(valley.angle);
+      const across = dx * cos + dz * sin;
+      const along = -dx * sin + dz * cos;
+      const warpedAcross =
+        across + Math.sin(along * 0.009 + valley.phase) * valley.rx * 0.2;
+      const q = (warpedAcross / valley.rx) ** 2 + (along / valley.rz) ** 2;
+      const depthVariation = 0.88 + 0.12 * Math.sin(along * 0.017 + valley.phase);
+      h -= valley.h * (
+        Math.exp(-q * 1.35) * depthVariation +
+        Math.exp(-q * 0.32) * 0.12
+      );
     }
     for (const c of this.craters) {
       const d = Math.sqrt((x - c.x) ** 2 + (z - c.z) ** 2);
@@ -569,11 +749,12 @@ export class PlanetSurface {
       );
     }
     h -= caveDepth;
-    // Foundation pads LAST: smoothstep-blend toward level ground under bases.
+    // Foundation pads LAST: keep the authored district genuinely level, then
+    // ease its broad earthworks back into the procedural terrain outside.
     for (const p of this.pads) {
       const d = Math.sqrt((x - p.x) ** 2 + (z - p.z) ** 2);
       if (d < p.r) {
-        const u = d / p.r;
+        const u = Math.max(0, (d - p.flatR) / (p.r - p.flatR));
         const s = u * u * (3 - 2 * u);
         h = p.h + (h - p.h) * s;
       }
@@ -642,6 +823,37 @@ export class PlanetSurface {
       } else if (position.distanceToSquared(body.position) < (body.radius + radius) ** 2) {
         return false;
       }
+    }
+    return true;
+  }
+
+  /** True when a ground unit can occupy a surface point without clipping terrain or structures. */
+  isGroundUnitPositionClear(position: Vector3, radius: number): boolean {
+    const ground = this.heightAt(position.x, position.z);
+    const slope = Math.max(
+      Math.abs(this.heightAt(position.x + radius, position.z) - ground),
+      Math.abs(this.heightAt(position.x - radius, position.z) - ground),
+      Math.abs(this.heightAt(position.x, position.z + radius) - ground),
+      Math.abs(this.heightAt(position.x, position.z - radius) - ground),
+    );
+    if (slope > radius * 0.42) return false;
+    groundUnitCenter.set(position.x, ground + radius + 0.25, position.z);
+    const candidates = this.queryBodiesNear(
+      groundUnitCenter,
+      radius + 0.5,
+      groundUnitBodies,
+    );
+    for (const body of candidates) {
+      if (body.destroyed) continue;
+      if (body.box) {
+        const dx = Math.max(0, Math.abs(groundUnitCenter.x - body.position.x) - body.box.hx);
+        const dy = Math.max(0, Math.abs(groundUnitCenter.y - body.position.y) - body.box.hy);
+        const dz = Math.max(0, Math.abs(groundUnitCenter.z - body.position.z) - body.box.hz);
+        if (dx * dx + dy * dy + dz * dz < radius * radius) return false;
+      } else if (
+        groundUnitCenter.distanceToSquared(body.position) <
+        (body.radius + radius) ** 2
+      ) return false;
     }
     return true;
   }
@@ -786,7 +998,14 @@ export class PlanetSurface {
   }
 
   /** Octagonal mounting pad + a turret post on top of it. */
-  private addTurretPost(x: number, y: number, z: number, lookX: number, lookZ: number): void {
+  private addTurretPost(
+    x: number,
+    y: number,
+    z: number,
+    lookX: number,
+    lookZ: number,
+    baseId?: number,
+  ): void {
     const pad = new Mesh(
       new CylinderGeometry(2.6, 3.2, 1.2, 8),
       new MeshStandardMaterial({ color: 0x3a4048, metalness: 0.6, roughness: 0.45, flatShading: true }),
@@ -798,6 +1017,7 @@ export class PlanetSurface {
       // central hit sphere just above padded rooftop AABBs.
       position: new Vector3(x, y + 2.0, z),
       lookAt: new Vector3(lookX, y + 30, lookZ),
+      baseId,
     });
   }
 

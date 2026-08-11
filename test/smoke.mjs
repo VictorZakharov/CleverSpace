@@ -26,6 +26,7 @@ import {
 } from './smoke/helpers.mjs';
 import { runHangarSmoke } from './smoke/hangar.mjs';
 import { runMobileSmoke } from './smoke/mobile.mjs';
+import { collectPlanetaryBaseFailures, runPlanetaryBaseSmoke } from './smoke/planetary-bases.mjs';
 import { collectPerformanceFailures, runPerformanceSmoke } from './smoke/performance.mjs';
 import { runPreferenceSmoke } from './smoke/preferences.mjs';
 import {
@@ -58,6 +59,7 @@ try {
   const desktopInput = await runDesktopInputSmoke(page);
   const performance = await runPerformanceSmoke(page);
   const world = await runWorldSmoke(page);
+  const planetaryBases = await runPlanetaryBaseSmoke(page);
   const targeting = await runTargetingSmoke(page);
   const capitalSystems = await runCapitalSmoke(page);
   const asteroidImpact = await runAsteroidImpactSmoke(page);
@@ -80,6 +82,7 @@ try {
   });
   failures.push(...collectDesktopInputFailures(desktopInput));
   failures.push(...collectPerformanceFailures(performance));
+  failures.push(...collectPlanetaryBaseFailures(planetaryBases));
   failures.push(...collectFxFailures(fx));
   failures.push(...collectAsteroidImpactFailures(asteroidImpact));
   failures.push(...collectProjectileDamageFailures(projectileDamage));

@@ -133,6 +133,11 @@ export class EnemyBrain {
     if (this.state !== 'break' && this.rng.chance(0.35)) this.transition('break');
   }
 
+  /** Installation alarms force a deterministic launch/approach response. */
+  engage(): void {
+    if (this.state === 'patrol') this.transition('approach');
+  }
+
   private transition(next: BrainState): void {
     this.state = next;
     this.stateTime = 0;

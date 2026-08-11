@@ -30,13 +30,14 @@ const DIFF_DIR = join(__dirname, 'diff');
 
 const SCENES = [
   'nebula', 'ship', 'asteroids', 'combat', 'hud', 'menu', 'cockpit', 'hangar', 'loadout',
-  'boost', 'targeting', 'distant-targeting', 'turret-targeting', 'capital-targeting', 'friendly-targeting', 'resource-targeting', 'fx', 'fx-volume', 'smoke-volume', 'shield-impact', 'damage-shake', 'asteroid-impact', 'ship-breakup', 'cave-turret-pads', 'cave', 'split', 'level', 'wreck', 'planet', 'base', 'trade', 'fleet',
+  'boost', 'targeting', 'distant-targeting', 'turret-targeting', 'capital-targeting', 'friendly-targeting', 'resource-targeting', 'fx', 'fx-volume', 'smoke-volume', 'shield-impact', 'damage-shake', 'asteroid-impact', 'ship-breakup', 'cave-turret-pads', 'cave', 'split', 'level', 'wreck', 'planet', 'base', 'skybase', 'ground-launcher', 'trade', 'fleet',
   'cloak', 'controls',
   'enemy-variety', 'missile-warning', 'capital-superweapon', 'capital-charge-guide',
   'mobile-controls', 'mobile-controls-portrait',
   'mobile-hangar', 'mobile-hangar-portrait', 'mobile-loadout', 'mobile-trade',
 ];
 const SEED = 7;
+const SCENE_SEEDS = { skybase: 9 };
 const VIEWPORT = { width: 1280, height: 720 };
 const SCENE_VIEWPORTS = {
   'mobile-controls': { width: 844, height: 390 },
@@ -119,7 +120,7 @@ const results = [];
 
 for (const scene of scenes) {
   await page.setViewportSize(SCENE_VIEWPORTS[scene] ?? VIEWPORT);
-  const url = `http://localhost:${PORT}/?testScene=${scene}&seed=${SEED}`;
+  const url = `http://localhost:${PORT}/?testScene=${scene}&seed=${SCENE_SEEDS[scene] ?? SEED}`;
   process.stdout.write(`Scene "${scene}" … `);
   await page.goto(url, { waitUntil: 'load' });
   await page.waitForFunction(() => window.__RENDER_DONE__ === true, { timeout: 30000 });
