@@ -37,6 +37,7 @@ export class TutorialSurfaceDrills {
     const mission = this.ensureMission();
     if (!mission) return;
     if (id === 'surface-alarm' || id === 'surface-clear') {
+      mission.crawler.setMovementLocked(id === 'surface-alarm');
       mission.defender.notifyBaseAlert();
       this.updateDefenseWaypoint();
     }

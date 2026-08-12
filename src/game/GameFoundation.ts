@@ -588,6 +588,8 @@ export abstract class GameFoundation {
       playerSeekerImpacts: (target) => game.combat.tutorialCombat.playerSeekerImpacts(target),
       releaseTrainingSeekers: () => game.projectiles.releaseIncomingTarget(game.player),
       incomingMissileThreat: () => game.projectiles.incomingThreat(game.player),
+      hasLineOfSight: (from, to, ignoredBody) =>
+        game.combat.hasLineOfSight(from, to, ignoredBody ?? null),
       prepareSurfaceMission: () => prepareTutorialSurfaceMission(
         game,
         (from, to) => game.combat.hasLineOfSight(from, to),

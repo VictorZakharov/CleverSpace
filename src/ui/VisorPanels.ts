@@ -1,5 +1,6 @@
 import {
   CanvasTexture,
+  LinearFilter,
   Mesh,
   MeshBasicMaterial,
   PerspectiveCamera,
@@ -73,7 +74,7 @@ export class VisorPanels {
   constructor(private readonly onTextureReady: () => void = () => undefined) {}
 
   /** Shared helmet depth as a fraction of the shorter viewport dimension. */
-  private readonly visorSag = 0.06;
+  private readonly visorSag = 0.04;
 
   mount(specs: { el: HTMLElement; anchor: VisorAnchor }[]): void {
     this.unmount();
@@ -287,7 +288,10 @@ export class VisorPanels {
     await Promise.all(sourceImages.map((img) => this.decodeImage(img)));
     if (epoch !== panel.rasterEpoch || !this.panels.includes(panel)) return;
 
-    const scale = 2; // supersample for crisp text on the curved sheet
+    // Transparent canvas text cannot use the browser's subpixel font path.
+    // Give it enough source coverage for the curved projection, then sample
+    // that source directly instead of selecting a soft generated mip level.
+    const scale = 3;
     const canvas = document.createElement('canvas');
     canvas.width = panel.wPx * scale;
     canvas.height = panel.hPx * scale;
@@ -299,6 +303,9 @@ export class VisorPanels {
     panel.material.map?.dispose();
     const texture = new CanvasTexture(canvas);
     texture.colorSpace = SRGBColorSpace;
+    texture.generateMipmaps = false;
+    texture.minFilter = LinearFilter;
+    texture.magFilter = LinearFilter;
     panel.material.map = texture;
     panel.material.needsUpdate = true;
     panel.material.visible = true;

@@ -1,12 +1,12 @@
 import { Vector3 } from 'three';
 import { EnemyShip } from '../entities/EnemyShip';
 import { NeutralShip } from '../entities/NeutralShip';
-import { AsteroidBody } from '../world/AsteroidField';
 import { PlanetInfo } from '../world/Sector';
 import { NavigationDestination } from './NavigationSystem';
 import { TutorialStepId } from './TutorialCards';
 import { debrisFlightCourse } from './TutorialFlightCourse';
 import { TutorialHost } from './TutorialHost';
+import { TutorialMiningDrill } from './TutorialMiningDrill';
 import {
   TutorialScenarioUpdate,
   TutorialStealthDrills,
@@ -27,9 +27,9 @@ const nearestPoint = new Vector3();
 /** Owns staged world actors, baselines, destinations, and objective completion. */
 export class TutorialScenario {
   private readonly stealth: TutorialStealthDrills;
+  private readonly mining: TutorialMiningDrill;
   private readonly surfaceDrills: TutorialSurfaceDrills;
   private trainingTarget: EnemyShip | null = null;
-  private oreBody: AsteroidBody | null = null;
   private merchant: NeutralShip | null = null;
   private planet: PlanetInfo | null = null;
   private waypoint: Vector3 | null = null;
@@ -40,20 +40,20 @@ export class TutorialScenario {
   private trainingFireTimer = 0;
   private shieldBefore = 0;
   private hullBefore = 0;
-  private holdingsBefore = 0;
   private sectorBefore = 1;
   private craftDone = false;
   private tradeDone = false;
 
   constructor(private readonly host: TutorialHost) {
     this.stealth = new TutorialStealthDrills(host);
+    this.mining = new TutorialMiningDrill(host);
     this.surfaceDrills = new TutorialSurfaceDrills(host);
   }
 
   reset(): void {
     this.clearTrainingTarget();
     this.host.releaseTrainingSeekers();
-    this.oreBody = null;
+    this.mining.reset();
     this.merchant = null;
     this.planet = null;
     this.waypoint = null;
@@ -164,8 +164,7 @@ export class TutorialScenario {
         this.trainingFireTimer = 0;
         break;
       case 'mine':
-        this.prepareMining();
-        this.holdingsBefore = this.holdings;
+        this.mining.begin();
         break;
       case 'loadout-open': this.supplyEngineeringMaterials(); break;
       case 'craft': this.craftDone = false; break;
@@ -191,7 +190,6 @@ export class TutorialScenario {
   ): TutorialScenarioUpdate {
     const h = this.host;
     if ((id === 'shield' || id === 'hull') && narrationReady) this.updatePendingDamage(dt);
-    if (id === 'mine' && this.oreBody?.ore !== null) h.player.faceToward(this.miningAimPoint);
     if (id === 'emp') this.updateEmp(dt);
     const cloakComplete = id === 'cloak' && this.trainingTarget
       ? this.stealth.updateCloak(this.trainingTarget, dt) : false;
@@ -220,7 +218,7 @@ export class TutorialScenario {
       case 'cloak-break': complete = !!this.trainingTarget &&
         this.stealth.updateCloakBreak(this.trainingTarget, dt); break;
       case 'emp': complete = (this.trainingTarget?.stunTimer ?? 0) > 0.2; break;
-      case 'mine': complete = this.holdings > this.holdingsBefore || this.oreBody?.ore === null; break;
+      case 'mine': complete = this.mining.update(); break;
       case 'loadout-open': complete = h.state === 'loadout'; break;
       case 'craft': complete = this.craftDone; break;
       case 'loadout-close': complete = h.state === 'playing'; break;
@@ -308,7 +306,7 @@ export class TutorialScenario {
       case 'target': case 'guns': case 'seekers': case 'missile-dodge':
       case 'shield': case 'hull': case 'cloak': case 'cloak-break': case 'emp':
         return this.trainingTarget?.position ?? null;
-      case 'mine': return this.oreBody?.position ?? null;
+      case 'mine': return this.mining.position;
       case 'trade-open': return this.merchant?.position ?? null;
       case 'planet': return this.planet?.position ?? null;
       default: return this.waypoint;
@@ -372,22 +370,6 @@ export class TutorialScenario {
     return player.position.clone().addScaledVector(up, distance);
   }
 
-  private prepareMining(): void {
-    const body = this.host.worldBodies.find((candidate) =>
-      !candidate.destroyed && candidate.ore !== null && candidate.orePoints.length > 0,
-    ) ?? null;
-    this.oreBody = body;
-    if (!body) return;
-    body.oreHp = Math.min(body.oreHp, 12);
-    const aimPoint = this.miningAimPoint;
-    direction.copy(aimPoint).sub(body.position).normalize();
-    this.host.player.position.copy(aimPoint).addScaledVector(direction, 34);
-    this.host.player.velocity.set(0, 0, 0);
-    this.host.player.faceToward(aimPoint);
-    this.host.targeting.current = null;
-    this.host.chaseCam.snapTo(this.host.player.object);
-  }
-
   private prepareMerchant(): void {
     this.merchant = this.host.neutrals.find((neutral) => neutral.alive && neutral.isMerchant) ?? null;
     if (!this.merchant) return;
@@ -422,16 +404,6 @@ export class TutorialScenario {
 
   private get trainingHealth(): number {
     return this.trainingTarget ? this.trainingTarget.hull + this.trainingTarget.shield : 0;
-  }
-
-  private get holdings(): number {
-    const counts = this.host.inventory.counts;
-    return counts.scrap + counts.crystal + counts.flux;
-  }
-
-  private get miningAimPoint(): Vector3 {
-    const points = this.oreBody?.orePoints;
-    return points?.[Math.floor(points.length / 2)] ?? this.oreBody?.position ?? scratch;
   }
 
   private clearTrainingTarget(): void {

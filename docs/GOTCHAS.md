@@ -246,6 +246,12 @@ Real issues hit while building this game, kept here so they only get paid for on
   The visor's old `foreignObject` raster path failed panels containing ship or
   weapon icons while its text-only panel worked. `VisorPanels` now paints each
   panel directly to an origin-clean canvas, then uploads one `CanvasTexture`.
+- **The Hangar visor is UI, not adaptive scene detail.** Its infrequent static
+  renders use an independent, capped high-resolution framebuffer plus 3x
+  direct-sampled panel textures. Following `AdaptiveResolution` made labels soft;
+  worse, `setPixelRatio()` cleared the separate renderer without repainting it,
+  so the panels disappeared until the next hover. Any visor resize/reallocation
+  must schedule a render, and gameplay quality changes must never resize it.
 - **Visor curvature belongs to one viewport coordinate system.** Curving each
   card around its own local centre makes every widget look like a separate tiny
   helmet. `HangarVisor`/`VisorPanels` derive all vertices from the same
@@ -274,6 +280,9 @@ Real issues hit while building this game, kept here so they only get paid for on
   markers), overlay screens `.ns-panel` get `z-index: 10` (above the HUD). Adding
   a z-index to HUD panels without raising overlays buried the trade/loadout
   screens under the score panel (this happened).
+- Do not put `backdrop-filter` on `.hud-panel`. Chromium may intermittently drop
+  a filtered DOM layer composited over a changing WebGL canvas. The translucent
+  panel gradient supplies contrast without making HUD visibility GPU-driver-dependent.
 - `planet-tag`/`merchant-note` chips default `display:none` in CSS — staged
   captures before the first `updateHud()` tick otherwise show stale "Surface ·
   Merchant" chips from the raw markup.
@@ -462,7 +471,13 @@ Real issues hit while building this game, kept here so they only get paid for on
   must fire while exposed and keep a real harmless seeker locked. Cloak must clear that
   production lock and pursuit during the close approach; the sentry resumes only after
   the ship reveals itself. Tutorial-only unlimited energy belongs inside that drill;
-  narration must still explain the finite bank used by normal flight.
+  narration must still explain the finite bank used by normal flight. Pace the sentry:
+  alternate primary and secondary attacks every three seconds so harmless impacts do not
+  become visual noise.
+- **A marked mining vein must actually be visible and reachable.** Do not select the
+  first random ore body, park against its collider, or call `faceToward` every frame.
+  Require crystal-first visible collision, a clear camera/ship approach, and a static
+  medium host when available; then leave movement, aim, and primary fire enabled.
 - **A surface lesson route owns one authored base.** Use its recorded battery mount,
   crawler spawn, parked defender, H pad, and cache. Arbitrary nearest actors can be cave
   batteries or belong to another base and create incoherent backtracking. Keep one

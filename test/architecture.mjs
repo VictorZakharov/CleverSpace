@@ -12,6 +12,7 @@ const limits = new Map([
   ['src/game/TutorialScenario.ts', 460],
   ['src/game/TutorialFlightCourse.ts', 60],
   ['src/game/TutorialHost.ts', 80],
+  ['src/game/TutorialMiningDrill.ts', 110],
   ['src/game/TutorialSurfaceMission.ts', 100],
   ['src/game/TutorialSurfaceEncounter.ts', 150],
   ['src/game/TutorialSurfaceDrills.ts', 140],

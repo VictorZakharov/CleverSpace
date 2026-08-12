@@ -559,13 +559,7 @@ export abstract class GameRuntime extends GameInteractions {
       );
     }
     this.postFx.setSize(width, height);
-    this.hangarVisor.resize(
-      width,
-      height,
-      pixelRatio,
-      layoutChanged,
-      ratioChanged,
-    );
+    this.hangarVisor.resize(width, height, layoutChanged);
     if (this.state === 'hangar' && this.hangarVisor.active) {
       if (layoutChanged) this.hangarVisor.mount();
       this.updateMenuIdle(0, performance.now() * 0.001);
@@ -585,8 +579,5 @@ export abstract class GameRuntime extends GameInteractions {
     this.viewportPixelRatio = pixelRatio;
     this.renderer.setPixelRatio(pixelRatio);
     this.postFx.setSize(this.viewportWidth, this.viewportHeight);
-    this.hangarVisor.resize(
-      this.viewportWidth, this.viewportHeight, pixelRatio, false, true,
-    );
   }
 }

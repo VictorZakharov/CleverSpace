@@ -49,6 +49,10 @@ WebGL resolution is adaptive and independent of CSS/HUD resolution. Preserve the
 1920×1080 initial pixel budget, 1280×720 floor, hysteresis, and current buffer-pixel
 workload across resize/fullscreen. Manual test stepping intentionally supplies no
 wall-clock sample, so visual baselines do not change with machine speed.
+The desktop Hangar visor is a separate, static UI renderer: do not couple it to
+gameplay adaptive-resolution downshifts, preserve its supersampled direct texture
+sampling, and repaint after every framebuffer resize. HUD plates over WebGL must
+not use `backdrop-filter`; translucent gradients provide stable contrast.
 Static procedural meshes are material-batched for rendering. Authored source parts
 remain on camera-disabled layer 31 for connectivity/debris; authored ship parts carry
 the positive `shipDebrisSource` marker. Visual traversals skip `renderBatchSource`. Repeated fog
@@ -126,10 +130,14 @@ an unaided miss passes immediately, while an imminent intercept may hold time on
 until lateral/vertical movement clears the path, then must release the missile and
 remove the warning without damaging the player.
 
-Cloak training uses a live sentry and harmless real seeker: it must visibly fire while
-the player is exposed, lose pursuit and the in-flight lock during a close cloaked
+Cloak training uses a live sentry and harmless real seeker: it must alternate one
+primary/secondary attack every three seconds while the player is exposed, lose pursuit
+and the in-flight lock during a close cloaked
 approach, and resume only after the player reveals the ship. Refill cloak energy only
 for that drill and explicitly teach that normal cloak drains a finite weapon bank.
+Mining training must select an exposed, non-tumbling medium vein with a clear approach,
+stage it at readable range, and retain full flight/aim control rather than frame-locking
+the ship toward a random asteroid.
 Planet training selects one authored base and stages its actual battery, spiral crawler,
 parked defender, H pad, and cache. A live harmless actor from another base must remain
 through local clearance so the production ownership predicate proves it does not lock

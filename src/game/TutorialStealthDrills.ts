@@ -1,15 +1,12 @@
 import { Vector3 } from 'three';
 import { EnemyShip } from '../entities/EnemyShip';
 import { TutorialHost } from './TutorialHost';
-
 export type TutorialScenarioEvent = 'dodge-assist' | 'dodge-resume' | 'dodge-clean';
 export interface TutorialScenarioUpdate {
   complete: boolean;
   event?: TutorialScenarioEvent;
 }
-
 const lateral = new Vector3();
-
 /** Stateful seeker-evasion and cloak-infiltration training drills. */
 export class TutorialStealthDrills {
   private readonly stageOrigin = new Vector3();
@@ -20,15 +17,15 @@ export class TutorialStealthDrills {
   private dodgeHull = 0;
   private dodgeShield = 0;
   private cloakFireTimer = 0;
+  private cloakSecondary = false;
   private cloakBreakTimer = 0;
-
   constructor(private readonly host: TutorialHost) {}
-
   reset(): void {
     this.dodgeAssist = false;
     this.dodgeReleased = false;
     this.dodgeFinishTimer = 0;
     this.cloakFireTimer = 0;
+    this.cloakSecondary = false;
     this.cloakBreakTimer = 0;
   }
 
@@ -75,6 +72,7 @@ export class TutorialStealthDrills {
 
   beginCloak(): void {
     this.cloakFireTimer = 0;
+    this.cloakSecondary = false;
     this.host.weapons.energy = this.host.weapons.energyMax;
   }
 
@@ -83,15 +81,8 @@ export class TutorialStealthDrills {
     const h = this.host;
     if (h.devices.cloaked) {
       h.weapons.energy = h.weapons.energyMax;
-      this.cloakFireTimer = 0.35;
     } else if (target.alive) {
-      target.faceToward(h.player.position);
-      if (!h.incomingMissileThreat().locked) h.fireTrainingSeeker(target);
-      this.cloakFireTimer -= dt;
-      if (this.cloakFireTimer <= 0) {
-        h.fireTrainingBurst(target);
-        this.cloakFireTimer = 0.65;
-      }
+      this.updateCloakAttack(target, dt);
     }
     return h.devices.cloaked && !h.incomingMissileThreat().locked &&
       h.player.position.distanceTo(target.position) <= 65;
@@ -100,6 +91,7 @@ export class TutorialStealthDrills {
   beginCloakBreak(): void {
     this.cloakBreakTimer = 0;
     this.cloakFireTimer = 0;
+    this.cloakSecondary = false;
   }
 
   updateCloakBreak(target: EnemyShip, dt: number): boolean {
@@ -110,11 +102,19 @@ export class TutorialStealthDrills {
       return false;
     }
     this.cloakBreakTimer += dt;
-    this.cloakFireTimer -= dt;
-    if (target.alive && this.cloakFireTimer <= 0) {
-      h.fireTrainingBurst(target);
-      this.cloakFireTimer = 0.65;
-    }
+    if (target.alive) this.updateCloakAttack(target, dt);
     return this.cloakBreakTimer >= 0.75;
+  }
+
+  private updateCloakAttack(target: EnemyShip, dt: number): void {
+    this.cloakFireTimer -= dt;
+    if (this.cloakFireTimer > 0) return;
+    const h = this.host;
+    target.faceToward(h.player.position);
+    if (this.cloakSecondary) {
+      if (!h.incomingMissileThreat().locked) h.fireTrainingSeeker(target);
+    } else h.fireTrainingBurst(target);
+    this.cloakSecondary = !this.cloakSecondary;
+    this.cloakFireTimer = 3;
   }
 }

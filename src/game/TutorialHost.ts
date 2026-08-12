@@ -38,6 +38,7 @@ export interface TutorialHost {
   playerSeekerImpacts(target: EnemyShip): number;
   releaseTrainingSeekers(): number;
   incomingMissileThreat(): Readonly<MissileThreat>;
+  hasLineOfSight(from: Vector3, to: Vector3, ignoredBody?: AsteroidBody): boolean;
   prepareSurfaceMission(): TutorialSurfaceTargets | null;
   setTutorialControls(gate: InputControlGate | null, preserveHeld?: boolean): void;
   stageTutorialScene(scene: 'flight' | 'loadout' | 'trade' | 'surface'): void;

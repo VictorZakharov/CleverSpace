@@ -27,7 +27,8 @@ export function tutorialControlGate(id: TutorialStepId): InputControlGate {
       };
     case 'cloak-break': return { move: true, look: true, buttons: [0] };
     case 'emp': return { keys: ['KeyG'] };
-    case 'mine': return { look: true, buttons: [0] };
+    case 'mine':
+      return { move: true, look: true, buttons: [0], keys: freeFlightKeys };
     case 'loadout-open': return { keys: ['Tab'] };
     case 'loadout-close': return { keys: ['Tab', 'Escape'] };
     case 'trade-open': return { keys: ['KeyR'] };

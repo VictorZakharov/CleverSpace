@@ -200,16 +200,19 @@ flight without advancing and that its
 recorded collision lands before scripted incoming damage, then
 launches a real hostile seeker through both branches of the evasion lesson: an
 imminent approach holds until lateral movement clears it, while a smart unaided
-dodge advances without freezing. Cloak must then drop a separate live seeker lock.
+  dodge advances without freezing. Cloak must then drop a separate live seeker lock;
+  its sentry is instrumented to prove a primary/secondary alternation with a three-second gap.
 The EMP probe observes harmless passing bolts,
 triggers the real four-second stun, waits for fire to resume, and repeats EMP with
 its training-only instant recharge. It also follows shared nav markers through one
 authored base, observes a complete eight-rocket corkscrew and local parked launch,
 clears the weakened battery/crawler/defender trio, proves a foreign defender does not
 lock the H pad, and records its unlock/online/2 HP/s repair effects. It
-verifies that the live sentry fires before cloak, loses the close cloaked ship with
-training energy held full, and reacquires it after decloaking fire, then asserts manual
-`N` navigation after teardown.
+  verifies that the live sentry fires before cloak, loses the close cloaked ship with
+  training energy held full, and reacquires it after decloaking fire, then asserts manual
+  `N` navigation after teardown. The mining probe requires an aimed medium vein staged
+  95вЂ“180 metres away, confirms lateral movement remains enabled, and records ore damage
+  from the exposed firing line before accepting completion.
 The flight/surface probes require Q/E roll in free movement. The travel probe records
 the skyward quaternion and rejects camera snapping, holds LYRA across lift-off, injects
 a repeating held-J event, and requires the Sector Jump narration to remain active.

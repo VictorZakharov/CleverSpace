@@ -103,13 +103,14 @@ export function findTutorialCrawlerApproach(
 ): Vector3 {
   const outward = crawler.position.clone().sub(base).setY(0).normalize();
   const muzzle = crawler.position.clone().add(new Vector3(0, 4.55, 0));
+  const sightOrigin = crawler.position.clone().add(new Vector3(0, 3, 0));
   for (const angle of [0, 0.45, -0.45, 0.9, -0.9, Math.PI]) {
     const radial = outward.clone().applyAxisAngle(new Vector3(0, 1, 0), angle);
     for (const height of [35, 65, 95, 125]) {
       const point = crawler.position.clone().addScaledVector(radial, 180);
       point.y = Math.max(surface.heightAt(point.x, point.z) + height, muzzle.y + 18);
       const elevation = Math.atan2(point.y - muzzle.y, 180);
-      if (elevation <= Math.PI * 0.24 && hasLineOfSight(muzzle, point)) return point;
+      if (elevation <= Math.PI * 0.24 && hasLineOfSight(sightOrigin, point)) return point;
     }
   }
   return base.clone().add(new Vector3(0, 70, 0));

@@ -45,7 +45,10 @@ export async function runTutorialSurface(page) {
     baseDistance: window.game.player.position.distanceTo(window.game.__tutorialBase),
   }));
 
-  await advanceGameTime(page, 4.2, 30);
+  for (let elapsed = 0; elapsed < 8; elapsed += 0.5) {
+    await advanceGameTime(page, 0.5, 30);
+    if (await page.evaluate(() => window.game.tutorial.awaitingAction)) break;
+  }
   const alarmReview = await page.evaluate(() => {
     const game = window.game;
     const crawler = game.turrets.find((turret) => 'totalShotsFired' in turret);
@@ -61,6 +64,9 @@ export async function runTutorialSurface(page) {
         shot.faction === 'enemy' && shot.spiral && shot.trail),
     };
   });
+  if (!alarmReview.awaiting) throw new Error(
+    `Tutorial crawler salvo did not complete: ${JSON.stringify({ baseReached, alarmReview })}`,
+  );
   await setTutorialButton(page, 0, true);
   await advanceGameTime(page, 0.08);
   await setTutorialButton(page, 0, false);
@@ -110,6 +116,9 @@ export async function runTutorialSurface(page) {
       effect: effect?.userData.active ?? false,
     };
   }, padUnlocked.hull);
+  if (!padRepairReview.awaiting) throw new Error(
+    `Tutorial repair pad did not complete: ${JSON.stringify({ padUnlocked, padRepairReview })}`,
+  );
   await page.click('.tutorial-next');
   await page.evaluate(() => {
     const game = window.game;

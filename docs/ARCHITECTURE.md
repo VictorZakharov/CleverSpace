@@ -153,6 +153,7 @@ src/
     TutorialTransitions.ts held-result actions + cross-frame input handoff contract
     TutorialScenario.ts   staged actors/objectives + lesson completion routing
     TutorialFlightCourse.ts real-debris route construction for movement training
+    TutorialMiningDrill.ts exposed-vein selection, clear approach and mining completion
     TutorialStealthDrills.ts real missile-evasion + live cloak-infiltration drills
     TutorialSurfaceMission.ts selected-base training contract and weakened actor setup
     TutorialSurfaceEncounter.ts authored-base selection + repeatable real actor staging
@@ -369,6 +370,11 @@ high-DPR displays); sustained sub-52-FPS timing steps quality down after 0.8 s,
 with a 1280×720 floor, while sustained 58+-FPS headroom recovers quality after 4 s.
 Resize/fullscreen transitions preserve the current pixel workload instead of
 silently restoring an expensive native 4K target.
+The static desktop Hangar visor is a separate UI renderer and does not follow
+adaptive gameplay downshifts. It uses a capped high-resolution framebuffer,
+direct-sampled supersampled panel canvases, and repaints after any resize so its
+labels remain sharp and its transparent overlay cannot be left blank. DOM HUD
+plates avoid live backdrop filters over WebGL to prevent compositor flicker.
 
 Procedural ships are authored as connected primitive parts, then
 `StaticMeshBatching` fuses parts sharing a material for rendering. Originals stay

@@ -46,7 +46,7 @@ with a telegraphed annihilator beam — cripple it, destroy it, or outrun its fi
 ## Features
 
 - **Three playable ships** (Kestrel interceptor / Vanta scout / Aegis gunship) chosen
-  in an interactive convex-visor hangar, plus three difficulty tiers with real
+  in a sharp, stable interactive convex-visor hangar, plus three difficulty tiers with real
   multipliers. Explicit card clicks commit ship and difficulty to one-year,
   root-scoped browser cookies, so choices survive reloads without requiring Engage
   or game entry; opening or rendering the hangar never rewrites them.
@@ -61,7 +61,9 @@ with a telegraphed annihilator beam — cripple it, destroy it, or outrun its fi
   incoming-seeker lesson uses the production lock/impact warning: a clean unaided
   dodge passes immediately, while a close approach holds time until the player
   moves laterally clear, then releases the real missile. Cloak training also keeps a
-  harmless seeker locked until cloak makes the production projectile lose its target.
+  sentry alternate one harmless primary/secondary attack every three seconds, keeping a
+  seeker locked until cloak makes the production projectile lose its target. Mining
+  stages a clear, exposed medium vein at readable range and leaves flight controls free.
   Every completed objective holds its visible result until
   the player performs the next prompted gameplay action; named transition buttons
   remain only where no natural action exists. Left/Right Arrow on desktop and progress
@@ -83,7 +85,8 @@ with a telegraphed annihilator beam — cripple it, destroy it, or outrun its fi
   Closing Trade before buying returns to the still-marked merchant, and R can dock
   again without restarting the lesson. Free-flight lessons keep Q/E roll available.
   Scripted impacts and the harmless EMP demonstration remain visible for as long as
-  needed. Cloak training uses a live sentry and harmless seeker: both pursuit and the
+  needed. Cloak training uses a live sentry and harmless seeker at a paced three-second
+  alternating cadence: both pursuit and the
   in-flight lock disappear during a close cloaked approach, and the sentry reacquires
   after weapons reveal the ship. Energy is unlimited only for that drill, while LYRA
   explains the normal finite-energy limit. The surface route keeps its battery,

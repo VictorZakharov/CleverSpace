@@ -114,10 +114,14 @@ ever-meaner sectors (or dive onto planets) → death banks score÷10 as **credit
   miss completes without a hold; an imminent intercept holds time until sufficient
   lateral/vertical displacement, then resumes the missile safely.
 - Cloak infiltration uses a live training sentry with harmless gunfire and a real
-  homing seeker. Cloak stops pursuit, clears the in-flight lock, and permits a close
+  homing seeker. It alternates one primary/secondary attack every three seconds instead
+  of filling the scene with overlapping harmless impacts. Cloak stops pursuit, clears the in-flight lock, and permits a close
   approach inside 65 metres; weapon fire then reveals the ship and the sentry resumes.
   The drill continuously refills weapon energy so the pilot can experiment, while
   LYRA states that normal cloak drains the finite bank and cannot last forever.
+- Mining training selects a non-tumbling medium asteroid whose crystal collision is in
+  front of its visible rock surface and whose approach is clear of neighbouring bodies.
+  The ship begins at least 105 metres from the vein with movement, aim and fire unlocked.
 - Surface training chooses one authored Vigil base and stages its real battery,
   tracked spiral crawler, parked defender, H pad, and cache. Detection launches that
   base's defender; the crawler must visibly complete an eight-rocket corkscrew before
@@ -138,6 +142,9 @@ ever-meaner sectors (or dive onto planets) → death banks score÷10 as **credit
 
 - Simulation is display-refresh driven and dt-scaled; render resolution never
   changes gameplay time, targeting, physics, or the native-resolution DOM HUD.
+- The desktop Hangar's static curved-visor renderer is intentionally independent:
+  a capped high-resolution buffer and 3x non-mipmapped panel canvases keep text
+  legible, while every resize/reallocation explicitly repaints the overlay.
 - The WebGL framebuffer starts within a 1920×1080 pixel budget. Thus 3840×2160 at
   DPR 1 uses ratio 0.5 and 1920×1080 at DPR 2 uses ratio 1, both producing a
   1920×1080 internal scene before browser compositing.
