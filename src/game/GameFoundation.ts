@@ -582,9 +582,21 @@ export abstract class GameFoundation {
         game.scene.remove(target.object);
         target.dispose();
       },
-      fireTrainingBurst: (target) => game.combat.tutorialCombat.fireBurst(target),
-      fireTrainingHit: (target, damage) => game.combat.tutorialCombat.fireHit(target, damage),
-      fireTrainingSeeker: (target) => game.combat.tutorialCombat.fireSeeker(target),
+      fireTrainingBurst: (target) => {
+        if (game.combat.hasLineOfSight(target.position, game.player.position)) {
+          game.combat.tutorialCombat.fireBurst(target);
+        }
+      },
+      fireTrainingHit: (target, damage) => {
+        if (game.combat.hasLineOfSight(target.position, game.player.position)) {
+          game.combat.tutorialCombat.fireHit(target, damage);
+        }
+      },
+      fireTrainingSeeker: (target) => {
+        if (game.combat.hasLineOfSight(target.position, game.player.position)) {
+          game.combat.tutorialCombat.fireSeeker(target);
+        }
+      },
       playerSeekerImpacts: (target) => game.combat.tutorialCombat.playerSeekerImpacts(target),
       releaseTrainingSeekers: () => game.projectiles.releaseIncomingTarget(game.player),
       incomingMissileThreat: () => game.projectiles.incomingThreat(game.player),

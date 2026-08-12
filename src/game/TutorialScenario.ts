@@ -7,6 +7,7 @@ import { TutorialStepId } from './TutorialCards';
 import { debrisFlightCourse } from './TutorialFlightCourse';
 import { TutorialHost } from './TutorialHost';
 import { TutorialMiningDrill } from './TutorialMiningDrill';
+import { TutorialSpaceStaging } from './TutorialSpaceStaging';
 import {
   TutorialScenarioUpdate,
   TutorialStealthDrills,
@@ -20,14 +21,12 @@ export type { TutorialScenarioEvent } from './TutorialStealthDrills';
 
 const up = new Vector3(0, 1, 0);
 const direction = new Vector3();
-const sideDirection = new Vector3();
 const scratch = new Vector3();
-const path = new Vector3();
-const nearestPoint = new Vector3();
 /** Owns staged world actors, baselines, destinations, and objective completion. */
 export class TutorialScenario {
   private readonly stealth: TutorialStealthDrills;
   private readonly mining: TutorialMiningDrill;
+  private readonly staging: TutorialSpaceStaging;
   private readonly surfaceDrills: TutorialSurfaceDrills;
   private trainingTarget: EnemyShip | null = null;
   private merchant: NeutralShip | null = null;
@@ -47,6 +46,7 @@ export class TutorialScenario {
   constructor(private readonly host: TutorialHost) {
     this.stealth = new TutorialStealthDrills(host);
     this.mining = new TutorialMiningDrill(host);
+    this.staging = new TutorialSpaceStaging(host);
     this.surfaceDrills = new TutorialSurfaceDrills(host);
   }
 
@@ -109,14 +109,14 @@ export class TutorialScenario {
           h.player.position.copy(course.start);
           h.player.velocity.set(0, 0, 0);
         }
-        this.waypoint = course?.gate ?? this.clearPoint(480, -240);
+        this.waypoint = course?.gate ?? this.staging.targetPoint(480, -240, false);
         direction.copy(this.waypoint).sub(h.player.position).normalize().applyAxisAngle(up, 0.48);
         h.player.faceToward(scratch.copy(h.player.position).add(direction));
         h.chaseCam.snapTo(h.player.object);
         break;
       case 'target':
         this.clearTrainingTarget();
-        this.trainingTarget = h.spawnTrainingTarget(this.clearPoint(210, 55));
+        this.trainingTarget = h.spawnTrainingTarget(this.staging.targetPoint(210, 55, false));
         break;
       case 'guns':
         this.ensureTrainingTarget(true);
@@ -130,7 +130,7 @@ export class TutorialScenario {
         break;
       case 'missile-dodge':
         this.clearTrainingTarget();
-        this.trainingTarget = h.spawnTrainingTarget(this.clearPoint(300, 0));
+        this.trainingTarget = h.spawnTrainingTarget(this.staging.targetPoint(300));
         this.stealth.beginMissileDodge(this.trainingTarget);
         break;
       case 'shield': this.beginDamageLesson('shield'); break;
@@ -145,7 +145,7 @@ export class TutorialScenario {
         break;
       case 'cloak':
         this.clearTrainingTarget();
-        this.trainingTarget = h.spawnTrainingTarget(this.clearPoint(230, 80));
+        this.trainingTarget = h.spawnTrainingTarget(this.staging.targetPoint(230, 80));
         h.setTutorialCloak(false);
         h.devices.cloakCooldown = 0;
         h.player.hull = h.player.hullMax;
@@ -160,7 +160,7 @@ export class TutorialScenario {
       case 'emp':
         this.clearTrainingTarget();
         h.devices.empCooldown = 0;
-        this.trainingTarget = h.spawnTrainingTarget(this.clearPoint(135, 35));
+        this.trainingTarget = h.spawnTrainingTarget(this.staging.targetPoint(135, 35));
         this.trainingFireTimer = 0;
         break;
       case 'mine':
@@ -336,12 +336,23 @@ export class TutorialScenario {
 
   private ensureTrainingTarget(aimed: boolean, distance = 190): void {
     const h = this.host;
-    if (!this.trainingTarget?.alive) {
-      this.trainingTarget = h.spawnTrainingTarget(this.clearPoint(distance, aimed ? 0 : 55));
+    const target = this.trainingTarget;
+    const clear = target?.alive &&
+      this.staging.corridorClear(h.player.position, target.position, h.player.radius + 10) &&
+      (!aimed || this.staging.cameraLineClear(target.position));
+    if (!clear) {
+      if (target) this.clearTrainingTarget();
+      this.trainingTarget = h.spawnTrainingTarget(
+        this.staging.targetPoint(distance, aimed ? 0 : 55, aimed),
+      );
     }
     if (!aimed || !this.trainingTarget) return;
     h.player.faceToward(this.trainingTarget.position);
     h.chaseCam.snapTo(h.player.object);
+    if (!this.staging.cameraSees(this.trainingTarget.position)) {
+      this.clearTrainingTarget();
+      this.trainingTarget = h.spawnTrainingTarget(this.staging.targetPoint(distance));
+    }
     h.targeting.current = {
       ship: this.trainingTarget,
       leadPoint: this.trainingTarget.position.clone(),
@@ -350,46 +361,27 @@ export class TutorialScenario {
     };
   }
 
-  private clearPoint(distance: number, sideOffset: number): Vector3 {
-    const player = this.host.player;
-    player.forward(direction).normalize();
-    sideDirection.set(-direction.z, 0.18, direction.x).normalize();
-    for (const multiplier of [1, -1, 2, -2, 0]) {
-      const point = player.position.clone()
-        .addScaledVector(direction, distance)
-        .addScaledVector(sideDirection, sideOffset * multiplier);
-      path.copy(point).sub(player.position);
-      const blocked = this.host.worldBodies.some((body) => {
-        const t = Math.max(0, Math.min(1,
-          scratch.copy(body.position).sub(player.position).dot(path) / path.lengthSq()));
-        nearestPoint.copy(player.position).addScaledVector(path, t);
-        return !body.destroyed && nearestPoint.distanceTo(body.position) < body.radius + 18;
-      });
-      if (!blocked) return point;
-    }
-    return player.position.clone().addScaledVector(up, distance);
-  }
-
   private prepareMerchant(): void {
     this.merchant = this.host.neutrals.find((neutral) => neutral.alive && neutral.isMerchant) ?? null;
     if (!this.merchant) return;
-    this.merchant.forward(direction);
-    this.host.player.position.copy(this.merchant.position)
-      .addScaledVector(direction, -72).addScaledVector(up, 18);
+    if (!this.staging.playerPointFacing(this.merchant.position, 72, 18)) {
+      this.merchant.position.copy(this.staging.targetPoint(72));
+      this.merchant.velocity.set(0, 0, 0);
+    }
     this.host.player.velocity.set(0, 0, 0);
-    this.host.player.faceToward(this.merchant.position);
-    this.host.chaseCam.snapTo(this.host.player.object);
   }
 
   private preparePlanet(): void {
     this.planet = this.host.planets[0] ?? null;
     if (!this.planet) return;
-    direction.copy(this.planet.position).normalize();
-    this.host.player.position.copy(this.planet.position)
-      .addScaledVector(direction, -(this.planet.radius + 760));
+    if (!this.staging.playerPointFacing(this.planet.position, this.planet.radius + 760)) {
+      direction.copy(this.planet.position).normalize();
+      this.host.player.position.copy(this.planet.position)
+        .addScaledVector(direction, this.planet.radius + 760);
+      this.host.player.faceToward(this.planet.position);
+      this.host.chaseCam.snapTo(this.host.player.object);
+    }
     this.host.player.velocity.set(0, 0, 0);
-    this.host.player.faceToward(this.planet.position);
-    this.host.chaseCam.snapTo(this.host.player.object);
   }
 
   private prepareJumpVector(): void {

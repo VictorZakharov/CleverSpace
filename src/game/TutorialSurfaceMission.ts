@@ -33,12 +33,14 @@ export function prepareTutorialSurfaceMission(
   const candidate = selectTutorialSurfaceBase(surface, host.player);
   if (!candidate) return null;
   const actors = replaceSurfaceActors(host, surface, candidate);
+  const approach = findTutorialCrawlerApproach(
+    surface, candidate.base, actors.crawler, hasLineOfSight,
+  );
+  if (!approach) return null;
   const mission: TutorialSurfaceTargets = {
     baseId: candidate.baseId,
     base: candidate.base,
-    approach: findTutorialCrawlerApproach(
-      surface, candidate.base, actors.crawler, hasLineOfSight,
-    ),
+    approach,
     ...actors,
     pad: candidate.pad,
     stash: candidate.stash,

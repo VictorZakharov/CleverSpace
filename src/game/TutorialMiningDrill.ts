@@ -2,6 +2,7 @@ import { Vector3 } from 'three';
 import { segmentHitsAsteroid } from '../combat/ProjectileCollision';
 import { AsteroidBody } from '../world/AsteroidField';
 import { TutorialHost } from './TutorialHost';
+import { TutorialSpaceStaging } from './TutorialSpaceStaging';
 
 interface MiningCandidate {
   body: AsteroidBody;
@@ -18,11 +19,14 @@ const PLAYER_CLEARANCE = 52;
 
 /** Selects and stages a visible, reachable production ore vein. */
 export class TutorialMiningDrill {
+  private readonly staging: TutorialSpaceStaging;
   private body: AsteroidBody | null = null;
   private pointIndex = -1;
   private holdingsBefore = 0;
 
-  constructor(private readonly host: TutorialHost) {}
+  constructor(private readonly host: TutorialHost) {
+    this.staging = new TutorialSpaceStaging(host);
+  }
 
   reset(): void {
     this.body = null;
@@ -68,6 +72,10 @@ export class TutorialMiningDrill {
         approach.copy(point).addScaledVector(outward, viewDistance);
         if (!this.clearApproach(approach, body)) continue;
         if (!this.host.hasLineOfSight(approach, point, body)) continue;
+        this.previewCamera(approach, point);
+        if (!this.staging.cameraLineClear(point, body)) continue;
+        if (!segmentHitsAsteroid(this.host.chaseCam.camera.position, point, body, firstHit)) continue;
+        if (firstHit.distanceTo(point) > radius * 1.08) continue;
         if (!segmentHitsAsteroid(approach, point, body, firstHit)) continue;
         if (firstHit.distanceTo(point) > radius * 1.08) continue;
         const score = radius - Math.max(0, body.radius - 38) * 0.04;
@@ -84,6 +92,14 @@ export class TutorialMiningDrill {
       body !== selected && !body.destroyed &&
       point.distanceTo(body.position) < body.radius + PLAYER_CLEARANCE,
     );
+  }
+
+  private previewCamera(playerPosition: Vector3, target: Vector3): void {
+    const player = this.host.player;
+    player.position.copy(playerPosition);
+    player.velocity.set(0, 0, 0);
+    player.faceToward(target);
+    this.host.chaseCam.snapTo(player.object);
   }
 
   private get holdings(): number {
