@@ -620,6 +620,22 @@ Real issues hit while building this game, kept here so they only get paid for on
 
 ## Audio
 
+- Tutorial lesson updates and navigation must stop while the pause menu is open.
+  Simulation holds alone do not stop scenario timers or scripted projectile spawns.
+- Space lessons own their combat population: remove ambient hostiles before
+  mounting Engineering and after world swaps, and suppress hunter reinforcements.
+  Surface lessons retain their explicitly staged base defenders. Stop inherited
+  drift when entering space lessons with restricted movement; supply another
+  seeker when the training rack empties. Mining completion must observe the marked
+  vein's depletion, never an unrelated pickup increasing inventory.
+- Engineering must remain reopenable before crafting. When its opening lesson
+  enters review, discard the Tab edge that opened it before enabling Tab again;
+  otherwise the same press immediately closes the overlay on the following frame.
+- Keep the pilot's aim and roll when reusing a clear training target. Necessary
+  staged relocations crossfade a bounded copy of the previous rendered world below
+  the HUD; they must not block input, leak into the Hangar, or move the camera
+  through intervening terrain. Deterministic single-scene staging skips this fade.
+
 - The whole `AudioEngine` is lazily created on first user gesture (`init()` from a
   menu click). Every public method no-ops before init — never assume `ctx` exists.
 - `setEngine(0, false)` intentionally retains an idle hum. Docking must call

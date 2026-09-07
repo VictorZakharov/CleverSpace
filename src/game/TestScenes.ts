@@ -1,4 +1,5 @@
 import { Game } from './Game';
+import { tutorialTestScenes } from './test-scenes/TutorialTestScenes';
 import { stageAsteroidImpact } from './test-scenes/AsteroidImpactTestScene';
 import {
   stageCapitalChargeGuide,
@@ -41,7 +42,6 @@ import {
   stageLoadout,
   stageMenu,
   stageTrade,
-  stageTutorial,
 } from './test-scenes/UiTestScenes';
 import {
   stageAsteroids,
@@ -72,7 +72,7 @@ const TEST_SCENES: Readonly<Record<string, (game: Game) => void>> = {
   hangar: stageHangar,
   loadout: stageLoadout,
   boost: stageBoost,
-  tutorial: stageTutorial,
+  ...tutorialTestScenes,
   targeting: stageTargeting,
   'distant-targeting': stageDistantTargeting,
   'turret-targeting': stageTurretTargeting,

@@ -168,6 +168,7 @@ export abstract class GameRuntime extends GameInteractions {
 
   private updatePlaying(dt: number): void {
     const player = this.player;
+    if (this.tutorial.active && !this.surface) this.isolateTutorialSpace();
     if (!handlePlayingInput(this)) return;
     if (this.tutorial.maneuverHold) {
       this.rebuildTargetLists();
@@ -216,7 +217,7 @@ export abstract class GameRuntime extends GameInteractions {
 
     this.tutorial.protectPlayer();
     if (this.updatePlayerDeath(dt)) return;
-    if (this.sectorIndex > 1 && !this.surface) {
+    if (this.sectorIndex > 1 && !this.surface && !this.tutorial.active) {
       this.encounters?.update(dt, player.position);
     }
     this.chaseCam.update(

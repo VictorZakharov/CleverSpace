@@ -40,11 +40,11 @@ export function capturePageErrors(page, errors, label) {
 }
 
 /** Open an isolated desktop scenario and stop rendering before DOM settling. */
-export async function openSmokePage(browser, baseUrl, errors) {
+export async function openSmokePage(browser, baseUrl, errors, seed = 99) {
   const context = await browser.newContext({ viewport: { width: 1280, height: 720 } });
   const page = await context.newPage();
   capturePageErrors(page, errors, 'game page');
-  await page.goto(`${baseUrl}/?seed=99&headless=1`, { waitUntil: 'load' });
+  await page.goto(`${baseUrl}/?seed=${seed}&headless=1`, { waitUntil: 'load' });
   await page.waitForFunction(() => Boolean(window.game));
   await page.evaluate(() => window.game.loop.stop());
   await settleBrowserFrames(page);

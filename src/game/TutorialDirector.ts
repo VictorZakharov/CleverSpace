@@ -2,6 +2,7 @@ import { Camera, Vector3 } from 'three';
 import { Voice } from '../audio/Voice';
 import { InputControlGate } from '../core/Input';
 import { TutorialCard, TutorialOverlay } from '../ui/TutorialOverlay';
+import { TutorialSceneTransition } from '../ui/TutorialSceneTransition';
 import { tutorialCards, TutorialStepId } from './TutorialCards';
 import { tutorialControlGate, tutorialReviewControlGate } from './TutorialControlGates';
 import { TutorialHost } from './TutorialHost';
@@ -24,6 +25,7 @@ const forward = new Vector3();
 export class TutorialDirector {
   private readonly overlay: TutorialOverlay;
   private readonly scenario: TutorialScenario;
+  private readonly transition: TutorialSceneTransition;
   private cards: TutorialCard[] = [];
   private index = -1;
   private running = false;
@@ -39,6 +41,7 @@ export class TutorialDirector {
     private readonly host: TutorialHost,
   ) {
     this.scenario = new TutorialScenario(host);
+    this.transition = new TutorialSceneTransition(parent);
     this.overlay = new TutorialOverlay(
       parent,
       () => this.continue(),
@@ -66,6 +69,7 @@ export class TutorialDirector {
     this.pendingUiAction = null;
     this.index = -1;
     this.overlay.hide();
+    this.transition.clear();
     this.voice.cancel();
     this.host.setTutorialControls(null);
     this.host.releaseTutorialNavigation();
@@ -73,7 +77,7 @@ export class TutorialDirector {
   }
 
   continue(): void {
-    if (!this.running || !this.canExplicitlyContinue) return;
+    if (!this.running || this.host.state === 'paused' || !this.canExplicitlyContinue) return;
     this.voice.cancel();
     if (this.stepId === 'complete') {
       this.host.exitTutorial();
@@ -83,13 +87,13 @@ export class TutorialDirector {
   }
 
   browse(delta: number): void {
-    if (!this.running || delta === 0) return;
+    if (!this.running || this.host.state === 'paused' || delta === 0) return;
     const index = Math.max(0, Math.min(this.cards.length - 1, this.index + Math.sign(delta)));
     if (index !== this.index) this.goTo(index, false, true);
   }
 
   update(dt: number, _camera: Camera): void {
-    if (!this.running) return;
+    if (!this.running || this.host.state === 'paused') return;
     if (this.host.input.wasPressed('ArrowLeft')) {
       this.browse(-1);
       return;
@@ -176,7 +180,7 @@ export class TutorialDirector {
     if (!this.running) this.start();
     const index = this.cards.findIndex((card) => card.id === id);
     if (index < 0) throw new Error(`Unknown tutorial step: ${id}`);
-    this.goTo(index, false, true);
+    this.goTo(index, false, true, false);
   }
 
   get active(): boolean { return this.running; }
@@ -208,7 +212,13 @@ export class TutorialDirector {
     this.goTo(Math.min(this.cards.length - 1, this.index + 1), preserveHeld);
   }
 
-  private goTo(index: number, preserveHeld = false, restage = false): void {
+  private goTo(index: number, preserveHeld = false, restage = false, animate = true): void {
+    const camera = this.host.chaseCam.camera;
+    const previousPosition = camera.position.clone();
+    const previousRotation = camera.quaternion.clone();
+    const previousSurface = this.host.surface;
+    const capture = animate && this.index >= 0;
+    if (capture) this.transition.capture(this.host.renderTutorialFrame());
     if (restage) this.scenario.reset();
     this.reviewing = false;
     this.maneuverHeld = false;
@@ -225,6 +235,9 @@ export class TutorialDirector {
     this.narrate(card.narration);
     this.stageControls(tutorialControlGate(step), preserveHeld);
     this.host.setTutorialFreeze(this.frozen);
+    if (capture && (previousSurface !== this.host.surface ||
+      previousPosition.distanceTo(camera.position) > 0.5 ||
+      previousRotation.angleTo(camera.quaternion) > 0.03)) this.transition.reveal();
   }
 
   private enterReview(preserveHeld = true): void {
@@ -246,7 +259,7 @@ export class TutorialDirector {
     this.narrate(view.narration);
     this.stageControls(
       advance?.gate ?? (card.liveReview ? tutorialReviewControlGate(this.stepId!) : {}),
-      preserveHeld,
+      preserveHeld && this.stepId !== 'loadout-open',
     );
     this.host.setTutorialFreeze(held);
   }

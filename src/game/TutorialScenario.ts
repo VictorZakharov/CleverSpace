@@ -93,6 +93,8 @@ export class TutorialScenario {
         h.stageTutorialScene('flight');
         break;
     }
+    // Restricted lessons cannot let inherited boost drift carry the pilot out of range.
+    h.player.velocity.set(0, 0, 0);
   }
 
   enter(id: TutorialStepId): void {
@@ -190,6 +192,7 @@ export class TutorialScenario {
   ): TutorialScenarioUpdate {
     const h = this.host;
     if ((id === 'shield' || id === 'hull') && narrationReady) this.updatePendingDamage(dt);
+    if (id === 'seekers' && testCompletion) h.inventory.missiles = Math.max(1, h.inventory.missiles);
     if (id === 'emp') this.updateEmp(dt);
     const cloakComplete = id === 'cloak' && this.trainingTarget
       ? this.stealth.updateCloak(this.trainingTarget, dt) : false;
@@ -347,9 +350,8 @@ export class TutorialScenario {
       );
     }
     if (!aimed || !this.trainingTarget) return;
-    h.player.faceToward(this.trainingTarget.position);
-    h.chaseCam.snapTo(h.player.object);
-    if (!this.staging.cameraSees(this.trainingTarget.position)) {
+    // Keep a visible existing contact and the pilot's aim/roll across weapon lessons.
+    if (!clear && !this.staging.cameraSees(this.trainingTarget.position)) {
       this.clearTrainingTarget();
       this.trainingTarget = h.spawnTrainingTarget(this.staging.targetPoint(distance));
     }

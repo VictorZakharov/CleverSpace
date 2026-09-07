@@ -30,6 +30,7 @@ export interface TutorialHost {
   readonly planets: readonly PlanetInfo[];
   readonly surface: PlanetSurface | null;
   readonly sectorIndex: number;
+  renderTutorialFrame(): HTMLCanvasElement;
   spawnTrainingTarget(position: Vector3): EnemyShip;
   removeTrainingTarget(target: EnemyShip): void;
   fireTrainingBurst(target: EnemyShip): void;

@@ -29,6 +29,7 @@ const OUTPUT_DIR = join(__dirname, 'output');
 const DIFF_DIR = join(__dirname, 'diff');
 
 const SCENES = [
+  'tutorial-transition',
   'nebula', 'ship', 'asteroids', 'combat', 'hud', 'menu', 'cockpit', 'hangar', 'loadout',
   'boost', 'tutorial', 'targeting', 'distant-targeting', 'turret-targeting', 'capital-targeting', 'friendly-targeting', 'resource-targeting', 'fx', 'fx-volume', 'smoke-volume', 'shield-impact', 'damage-shake', 'asteroid-impact', 'ship-breakup', 'cave-turret-pads', 'cave', 'split', 'level', 'wreck', 'planet', 'base', 'skybase', 'ground-launcher', 'trade', 'fleet',
   'cloak', 'controls',

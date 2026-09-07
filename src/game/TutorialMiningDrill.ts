@@ -22,7 +22,6 @@ export class TutorialMiningDrill {
   private readonly staging: TutorialSpaceStaging;
   private body: AsteroidBody | null = null;
   private pointIndex = -1;
-  private holdingsBefore = 0;
 
   constructor(private readonly host: TutorialHost) {
     this.staging = new TutorialSpaceStaging(host);
@@ -37,7 +36,6 @@ export class TutorialMiningDrill {
     const candidate = this.findCandidate(false) ?? this.findCandidate(true);
     this.body = candidate?.body ?? null;
     this.pointIndex = candidate?.pointIndex ?? -1;
-    this.holdingsBefore = this.holdings;
     if (!candidate) return;
 
     candidate.body.oreHp = Math.min(candidate.body.oreHp, 12);
@@ -50,7 +48,7 @@ export class TutorialMiningDrill {
   }
 
   update(): boolean {
-    return this.holdings > this.holdingsBefore || this.body?.ore === null;
+    return this.body !== null && this.body.ore === null;
   }
 
   get position(): Vector3 | null {
@@ -102,8 +100,4 @@ export class TutorialMiningDrill {
     this.host.chaseCam.snapTo(player.object);
   }
 
-  private get holdings(): number {
-    const counts = this.host.inventory.counts;
-    return counts.scrap + counts.crystal + counts.flux;
-  }
 }

@@ -1,4 +1,12 @@
 /* ---------- interactive flight tutorial ---------- */
+.tutorial-scene-transition {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  pointer-events: none;
+}
 .tutorial-overlay {
   position: absolute;
   inset: 0;

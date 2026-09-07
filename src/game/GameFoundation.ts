@@ -52,6 +52,7 @@ import { MetaProgress } from './MetaProgress';
 import { NavigationSystem } from './NavigationSystem';
 import { Quest, QuestSystem } from './Quests';
 import { TutorialDirector } from './TutorialDirector';
+import { isolateTutorialSpace } from './TutorialSpaceIsolation';
 import { prepareTutorialSurfaceMission } from './TutorialSurfaceMission';
 
 export type GameState =
@@ -189,6 +190,12 @@ export abstract class GameFoundation {
       ship.alive && ship.position.distanceToSquared(this.player.position) < rangeSq;
     return this.enemies.some(nearby) || this.turrets.some(nearby) ||
       (!!this.capital && nearby(this.capital));
+  }
+
+  protected isolateTutorialSpace(): void {
+    isolateTutorialSpace(this);
+    if (this.capitalTurrets.length) this.capitalTurrets = [];
+    if (this.targeting.current && !this.targeting.current.ship.alive) this.targeting.current = null;
   }
 
   readonly renderer;
@@ -563,6 +570,10 @@ export abstract class GameFoundation {
       get planets() { return game.sector.planets; },
       get surface() { return game.surface; },
       get sectorIndex() { return game.sectorIndex; },
+      renderTutorialFrame: () => {
+        game.postFx.render(0);
+        return game.renderer.domElement;
+      },
       spawnTrainingTarget: (position) => {
         const target = new EnemyShip('brute', game.rng.fork(), 0);
         target.training = true;
@@ -613,7 +624,8 @@ export abstract class GameFoundation {
       stageTutorialScene: (scene) => {
         if (game.state === 'loadout' && scene !== 'loadout') game.closeLoadout();
         if (game.state === 'trade' && scene !== 'trade') game.closeTrade();
-        if (game.surface && scene !== 'surface') game.exitPlanet();
+          if (game.surface && scene !== 'surface') game.exitPlanet();
+          if (scene !== 'surface') game.isolateTutorialSpace();
         if (scene === 'surface' && !game.surface) game.enterPlanet(0);
         else if (scene === 'loadout' && game.state === 'playing') game.openLoadout();
         else if (scene === 'trade' && game.state === 'playing') game.openTrade();

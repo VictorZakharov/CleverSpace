@@ -12,6 +12,20 @@ covered by one of the two.
 
 ## Commands
 
+Tutorial recovery probes also close Engineering before crafting and reopen it via
+Tab, hold a paused EMP lesson without spawning shots or accepting lesson arrows,
+and preserve a rolled targeting view when the weapons lesson begins. The
+`tutorial-transition` visual scene captures the midpoint of an EMP-to-mining
+crossfade; the recovery probe checks its image content, intermediate opacity,
+unblocked fire control, completion, and cleanup on tutorial exit.
+
+`npm run test:tutorial:randomized` audits twelve independent seeds for visible
+targets, unobstructed shot corridors, exposed ore, merchant/planet approaches,
+and a viable surface crawler firing position. It also injects inherited boost
+velocity/rotation, a nearby non-course hostile, unrelated salvage, and repeated
+missed seekers. Set `TUTORIAL_SEEDS` to a comma-separated list to reproduce a case;
+add `-- --full` to complete all thirty objectives for every selected seed.
+
 ```bash
 npm run test:architecture     # controller + smoke-module line-size budgets
 npm run typecheck            # strict TS
@@ -37,6 +51,11 @@ machine-independent ceilings of 330 space draw calls and 110 planet draw calls. 
 planet row additionally requires static batching, no more than four surface lights,
 and an initialized collision index. Use `-- --world=planet` and/or
 `-- --profile=1080p` to shorten focused iteration.
+
+Static cave rock lobes share their cave's material and render in a merged batch;
+their original named meshes remain on the audit-only layer, with collision bodies
+unchanged. Keeping those lobes as separate visible meshes exceeds the 110-call
+planet budget even though the main base structures are already batched.
 
 `test/smoke/performance.mjs` supplies the portable assertions: both 4K forms must
 start at no more than the 1080p pixel budget, sustained overload must reduce the
