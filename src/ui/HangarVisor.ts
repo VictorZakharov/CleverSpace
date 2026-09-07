@@ -1,6 +1,14 @@
 import { PerspectiveCamera, WebGLRenderer } from 'three';
-import { initialRenderPixelRatio } from '../rendering/AdaptiveResolution';
 import { VisorAnchor, VisorPanels } from './VisorPanels';
+
+const VISOR_PIXEL_BUDGET = 2880 * 1800;
+
+/** The static UI renderer stays sharp without following gameplay downshifts. */
+export function hangarVisorPixelRatio(width: number, height: number, dpr: number): number {
+  const native = Math.max(1, Math.min(dpr || 1, 2));
+  const supersampled = Math.sqrt(VISOR_PIXEL_BUDGET / Math.max(1, width * height));
+  return Math.min(2, Math.max(native, supersampled));
+}
 
 /**
  * Owns the hangar's curved visor renderer and all pointer/orbit interaction.
@@ -28,7 +36,7 @@ export class HangarVisor {
       powerPreference: 'high-performance',
     });
     this.renderer.setClearColor(0x000000, 0);
-    this.renderer.setPixelRatio(initialRenderPixelRatio(
+    this.renderer.setPixelRatio(hangarVisorPixelRatio(
       window.innerWidth,
       window.innerHeight,
       window.devicePixelRatio,
@@ -175,11 +183,14 @@ export class HangarVisor {
   resize(
     width: number,
     height: number,
-    pixelRatio: number,
     layoutChanged: boolean,
-    ratioChanged: boolean,
   ): void {
+    const pixelRatio = hangarVisorPixelRatio(width, height, window.devicePixelRatio);
+    const ratioChanged = Math.abs(pixelRatio - this.renderer.getPixelRatio()) > 1e-4;
     if (ratioChanged) this.renderer.setPixelRatio(pixelRatio);
     if (layoutChanged) this.renderer.setSize(width, height);
+    // setPixelRatio/setSize reallocates and clears the overlay framebuffer.
+    // Repaint immediately so a browser resize can never leave blank panels.
+    if ((ratioChanged || layoutChanged) && this.panels.active) this.scheduleRender();
   }
 }

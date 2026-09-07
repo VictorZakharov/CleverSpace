@@ -31,6 +31,7 @@ import { Quest, QuestSystem } from './Quests';
 import { pointInsideBody, rayHitsBodyBox } from './WorldCollision';
 import { resolveEnemySurfaceCollision as resolveSurfaceEnemy } from './SurfaceEnemyCollision';
 import { alertSurfaceBaseDefenders } from './SurfaceBaseSystems';
+import { TutorialCombat } from './TutorialCombat';
 
 const pushDir = new Vector3();
 const boxClosest = new Vector3();
@@ -98,8 +99,11 @@ export interface GameCombatHost {
 export class GameCombat {
   private readonly losBodies: AsteroidBody[] = [];
   private readonly playerSurfaceBodies: AsteroidBody[] = [];
+  readonly tutorialCombat: TutorialCombat;
 
-  constructor(private readonly host: GameCombatHost) {}
+  constructor(private readonly host: GameCombatHost) {
+    this.tutorialCombat = new TutorialCombat(host);
+  }
 
   /** Wake only the defenders authored for one planetary installation. */
   alertSurfaceBase(baseId: number): number {
@@ -194,6 +198,9 @@ export class GameCombat {
       return;
     }
 
+    if (hit.faction === 'player' && hit.wasMissile) {
+      this.tutorialCombat.recordPlayerSeekerImpact(hit.ship);
+    }
     const result = hit.ship.takeDamage(hit.damage);
     if (hit.ship === host.player) {
       if (host.jumpSpool >= 0) host.cancelJump('Jump disrupted — taking fire!');

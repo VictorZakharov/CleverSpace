@@ -13,9 +13,8 @@ import type { AsteroidBody } from '../world/AsteroidField';
 const PRESERVED_NAMES = new Set([
   'surface-terrain',
   'cave-tunnel',
-  'cave-rock-lobe',
 ]);
-const AUDIT_SOURCE_NAMES = new Set(['surface-rock-lobe']);
+const AUDIT_SOURCE_NAMES = new Set(['surface-rock-lobe', 'cave-rock-lobe']);
 const AUDIT_SOURCE_LAYER = 31;
 
 export interface SurfaceBatchStats {

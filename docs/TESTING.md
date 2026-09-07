@@ -12,6 +12,20 @@ covered by one of the two.
 
 ## Commands
 
+Tutorial recovery probes also close Engineering before crafting and reopen it via
+Tab, hold a paused EMP lesson without spawning shots or accepting lesson arrows,
+and preserve a rolled targeting view when the weapons lesson begins. The
+`tutorial-transition` visual scene captures the midpoint of an EMP-to-mining
+crossfade; the recovery probe checks its image content, intermediate opacity,
+unblocked fire control, completion, and cleanup on tutorial exit.
+
+`npm run test:tutorial:randomized` audits twelve independent seeds for visible
+targets, unobstructed shot corridors, exposed ore, merchant/planet approaches,
+and a viable surface crawler firing position. It also injects inherited boost
+velocity/rotation, a nearby non-course hostile, unrelated salvage, and repeated
+missed seekers. Set `TUTORIAL_SEEDS` to a comma-separated list to reproduce a case;
+add `-- --full` to complete all thirty objectives for every selected seed.
+
 ```bash
 npm run test:architecture     # controller + smoke-module line-size budgets
 npm run typecheck            # strict TS
@@ -37,6 +51,11 @@ machine-independent ceilings of 330 space draw calls and 110 planet draw calls. 
 planet row additionally requires static batching, no more than four surface lights,
 and an initialized collision index. Use `-- --world=planet` and/or
 `-- --profile=1080p` to shorten focused iteration.
+
+Static cave rock lobes share their cave's material and render in a merged batch;
+their original named meshes remain on the audit-only layer, with collision bodies
+unchanged. Keeping those lobes as separate visible meshes exceeds the 110-call
+planet budget even though the main base structures are already batched.
 
 `test/smoke/performance.mjs` supplies the portable assertions: both 4K forms must
 start at no more than the 1080p pixel budget, sustained overload must reduce the
@@ -88,6 +107,7 @@ actual regression check. Never commit generated PNGs.
 | capital-targeting | far whole-carrier lock and a readable nose-on fitted wireframe rather than an empty transparent preview |
 | friendly-targeting | merchant fallback lock: green box/wireframe, relationship+role copy, no lead pip |
 | menu / hangar / loadout / cockpit | each screen; cockpit = live-data MFDs + frame |
+| tutorial | minimized LYRA shield-impact strip, real vitals focus, adjacent progress controls and training craft presentation |
 | boost | camera framing at full boost (ship large, visible) |
 | cave / wreck / level / planet | POIs: cave asteroid, derelict+blackbox, capital+hauler; planet stages the outside approach looking through the broad natural arch |
 | base | HUD-free player-scale view across the complete fortified district: tall walls/gate/bastions, roads, tower, hangar, bridgework, machinery, lights, and terrain backdrop |
@@ -99,6 +119,7 @@ actual regression check. Never commit generated PNGs.
 | controls | keyboard/mouse control reference and device bindings |
 | mobile-controls / mobile-hangar | 844×390 landscape touch deck hit layout and native tappable hangar |
 | mobile-controls-portrait / mobile-hangar-portrait | 390×844 uncluttered portrait deck and vertically scrollable threat selection |
+| mobile-tutorial / mobile-tutorial-portrait | gated EMP lesson with the relevant touch action glowing and every other flight control disabled |
 | mobile-loadout / mobile-trade | 844×390 scrollable Engineering and merchant overlays with direct close control |
 | enemy-variety | raider/warden/bomber silhouettes, cannon and rocket batteries, both rocket families |
 | missile-warning | red imminent-impact warning, countdown and in-flight seeker |
@@ -150,7 +171,7 @@ SwiftShader runs ~4 FPS and dt clamps at 1/20, so sim time ≪ wall time: never
 advance helpers, direct dispatch calls, fixed-step hunter AI/camera updates).
 
 `test/smoke.mjs` is only the ordered runner. Feature probes are split into
-`hangar`, `desktop-input`, `world`, `planetary-bases`, `targeting`, `capital`, `asteroid-impact`,
+`tutorial`, `hangar`, `desktop-input`, `world`, `planetary-bases`, `targeting`, `capital`, `asteroid-impact`,
 `projectile-damage`, `debris`, `fx`, `runtime`, and `mobile` modules; shared server,
 browser-diagnostic, and artificial-time utilities live in `helpers.mjs`, while
 `assertions.mjs` converts their returned results into named failures. Keep probes
@@ -166,6 +187,61 @@ each real animation-frame wait also performs a full SwiftShader render. On the
 reference Windows machine these harness changes reduce the unchanged full suite
 from 52.2 seconds to 27.2 seconds.
 
+The `tutorial*.mjs` group runs in its own Chromium context and enters through the real Hangar
+button after explicitly selecting Vanta. It completes all 30 objectives through
+the same virtual input actions used by touch, including physical projectile travel,
+devices, ore damage, real Engineering/trade overlays, planetfall, lift and jump.
+It forces the touch deck so each step's highlighted/disabled mapping is inspected,
+arrow-jumps directly to Field Engineering and proves Tab opens the real loadout,
+requires every visible result to remain available until the next prompted gameplay
+action while repeatable boost/cloak/EMP/salvage/jump reviews remain live, and proves that
+releasing input also reaches the next system. It artificially holds
+`guideSpeaking` to verify that Enter, boost, primary fire and seeker fire can
+deliberately interrupt a briefing, while mouse-look selection stays on Targeting and
+does not cancel LYRA. Sustained Boost remains live in review, and passive
+scripted damage still waits. It also proves
+successful crafting and merchant purchases performed before their opening narration
+finishes are latched into the following review instead of being lost. It also closes
+Trade without buying, requires live flight plus the Merchant marker/prompt, docks again
+with R, and only then completes a trade. The intro probe
+rejects unrelated contextual interaction prompts, verifies the jump HUD is training-
+locked, and the flight probe proves a dense group of real asteroids surrounds and
+intersects the direct gate route.
+The damage probe requires the hull lesson to reach its Nanobot handoff even when a
+training projectile needs another attempt. It also proves
+Left/Right Arrow can browse forward and back without mouse routing, firing, or changing
+the sector theme, planet positions or asteroid layout. It also verifies desktop card
+buttons reject pointer input while touch targets remain available. It validates
+automatic and manual expand/minimize states, opens the tutorial-aware pause screen
+through Escape, resumes without losing the course, and checks the expanded card does
+not cover the navigation marker at 1876×837. It proves a launched seeker remains in
+flight without advancing and that its
+recorded collision lands before scripted incoming damage, then
+launches a real hostile seeker through both branches of the evasion lesson: an
+imminent approach holds until lateral movement clears it, while a smart unaided
+  dodge advances without freezing. Cloak must then drop a separate live seeker lock;
+  its sentry is instrumented to prove a primary/secondary alternation with a three-second gap.
+The EMP probe observes harmless passing bolts,
+triggers the real four-second stun, waits for fire to resume, and repeats EMP with
+its training-only instant recharge. It also follows shared nav markers through one
+authored base, observes a complete eight-rocket corkscrew and local parked launch,
+clears the weakened battery/crawler/defender trio, proves a foreign defender does not
+lock the H pad, and records its unlock/online/2 HP/s repair effects. It
+  verifies that the live sentry fires before cloak, loses the close cloaked ship with
+  training energy held full, and reacquires it after decloaking fire, then asserts manual
+  `N` navigation after teardown. The mining probe requires an aimed medium vein staged
+  95вЂ“180 metres away, confirms lateral movement remains enabled, and records ore damage
+  from the exposed firing line before accepting completion.
+The flight/surface probes require Q/E roll in free movement. The travel probe records
+the skyward quaternion and rejects camera snapping, holds LYRA across lift-off, injects
+a repeating held-J event, and requires the Sector Jump narration to remain active.
+All 30 opening cards are rendered and checked for empty or implementation-facing copy.
+Portrait bounds, centered progress chevrons, 44 px controls,
+frozen-position stability, death
+recovery, real surface defenses and repair, teardown, and restoration of
+the untouched Vanta preference/showcase. This is intentionally a full course test:
+checking only a staged card would not catch a lesson that can no longer advance.
+
 `mobile.mjs` creates a real `hasTouch`/coarse-pointer Chromium context at 844×390,
 dispatches pointer gestures through the rendered sticks/buttons, and advances game
 time manually. It asserts analog movement/aim, fire, boost, weapon/view switching,
@@ -177,8 +253,8 @@ This catches pointer-transparent informational panels that programmatic `scrollT
 checks cannot detect.
 
 `desktop-input.mjs` replaces the browser capture APIs with ordered spies and proves
-that entering flight requests pointer lock without requesting fullscreen. It then
-exercises the explicit fullscreen enter/exit toggle and Keyboard Lock separately.
+that entering flight requests pointer lock before automatic app fullscreen, then
+locks KeyW. It also exercises the explicit fullscreen exit/re-entry toggle.
 The page-realm API stubs live in `browser-capture-mock.mjs` so the scenario remains
 below its smoke-module size budget.
 It also sends a canvas mousedown while unlocked and proves that the fresh-gesture

@@ -36,6 +36,7 @@ export class GroundRocketLauncher extends Turret {
   private tubeIndex = 0;
   private aimElevation = 0;
   private rawTargetElevation = 0;
+  private movementLocked = false;
   private readonly aimDirection = new Vector3(0, 0, -1);
   private readonly aimPoint = new Vector3();
   private avoidanceSign = 1;
@@ -91,6 +92,12 @@ export class GroundRocketLauncher extends Turret {
       this.position.x - this.baseCenter.x,
       this.position.z - this.baseCenter.z,
     );
+  }
+
+  /** Hold the chassis still while retaining normal turning, aiming, and fire. */
+  setMovementLocked(locked: boolean): void {
+    this.movementLocked = locked;
+    if (locked) this.velocity.set(0, 0, 0);
   }
 
   override get detectionRange(): number {
@@ -197,6 +204,11 @@ export class GroundRocketLauncher extends Turret {
   }
 
   private chaseWithinBase(playerPos: Vector3, dt: number): void {
+    if (this.movementLocked) {
+      this.velocity.set(0, 0, 0);
+      this.throttle = 0;
+      return;
+    }
     desiredPosition.set(playerPos.x, this.position.y, playerPos.z);
     moveDirection.copy(desiredPosition).sub(this.baseCenter).setY(0);
     const maxTargetRadius = this.leashRadius - this.radius - 1;

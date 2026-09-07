@@ -106,6 +106,8 @@ export interface AsteroidBody {
   box: { hx: number; hy: number; hz: number } | null;
   /** Cave-structure boulder: indestructible, never splits. */
   hero: boolean;
+  /** True when the field updates this body's orientation every frame. */
+  tumbling: boolean;
   /** Thin sampled collider belonging to a visible planetary cave arch. */
   caveShell: boolean;
   /** Secret cache: destroying it bursts a mixed loot drop. */
@@ -140,6 +142,7 @@ export function makeBody(partial: Partial<AsteroidBody> & Pick<AsteroidBody, 'po
     solo: null,
     box: null,
     hero: false,
+    tumbling: false,
     caveShell: false,
     stash: false,
     ore: null,
@@ -320,6 +323,7 @@ export class AsteroidField {
           this.bodies.push(body);
 
           if (i % 3 === 0) {
+            body.tumbling = true;
             // Only a third tumble — keeps the per-frame matrix writes cheap.
             const [ax, ay, az] = rng.unitSphere();
             this.spins.push({

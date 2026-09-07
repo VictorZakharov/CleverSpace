@@ -6,6 +6,7 @@ import { PostFx } from '../rendering/PostFx';
 import type { AsteroidBody } from '../world/AsteroidField';
 import { showPlayerDamageFeedback } from './DamageFeedback';
 import { repairPlayerOnClearedPad } from './SurfaceBaseSystems';
+import { handlePlayingInput } from './PlayingInputActions';
 import {
   CAPITAL_TURRET_LOCK_RANGE_METERS,
   targetPresentation,
@@ -82,32 +83,38 @@ export abstract class GameRuntime extends GameInteractions {
         !this.headless &&
         !this.input.usesTouchControls &&
         this.state === 'playing' &&
+        !this.tutorial.active &&
+        !this.tutorial.frozen &&
         !this.input.isPointerLocked
       ) {
         this.pause();
       }
     });
   }
-
   protected override tick(dt: number, elapsed: number, wallDt?: number): void {
     if (wallDt && this.renderResolution.sampleFrame(wallDt)) {
       this.applyRenderResolution();
     }
-    if (this.state === 'playing') {
+    const tutorialFrozen = this.tutorial.frozen;
+    if (this.state === 'playing' && tutorialFrozen && this.input.wasPressed('Escape')) this.pause();
+    if (this.state === 'playing' && !tutorialFrozen) {
       this.updatePlaying(dt);
+    } else if (this.state === 'playing') {
+      this.audio.silenceEngine();
+      this.updateHud(0);
     } else if (this.state === 'menu' || this.state === 'hangar') {
       this.updateMenuIdle(dt, elapsed);
     } else if (this.state === 'loadout') {
-      if (this.input.wasPressed('Tab') || this.input.wasPressed('Escape')) {
+      if (!tutorialFrozen && (this.input.wasPressed('Tab') || this.input.wasPressed('Escape'))) {
         this.closeLoadout();
       }
     } else if (this.state === 'trade') {
-      if (this.input.wasPressed('KeyR') || this.input.wasPressed('Escape')) {
+      if (!tutorialFrozen && (this.input.wasPressed('KeyR') || this.input.wasPressed('Escape'))) {
         this.closeTrade();
       }
     }
 
-    const frozen =
+    const frozen = tutorialFrozen || this.tutorial.maneuverHold ||
       this.state === 'paused' ||
       this.state === 'loadout' ||
       this.state === 'trade';
@@ -125,12 +132,13 @@ export abstract class GameRuntime extends GameInteractions {
       this.warp.update(dt);
     }
     this.surface?.updatePresentation(this.chaseCam.camera.position);
+    this.tutorial.update(tutorialFrozen ? 0 : dt, this.chaseCam.camera);
     this.postFx.update(
       dt,
       this.state === 'playing' && this.player.boosting,
     );
     this.postFx.render(dt);
-    this.touchControls.setVisible(this.state === 'playing');
+    this.touchControls.setVisible(this.state === 'playing' && !tutorialFrozen);
     this.input.endFrame();
   }
 
@@ -160,32 +168,16 @@ export abstract class GameRuntime extends GameInteractions {
 
   private updatePlaying(dt: number): void {
     const player = this.player;
-
-    if (this.input.wasPressed('Escape')) {
-      this.pause();
+    if (this.tutorial.active && !this.surface) this.isolateTutorialSpace();
+    if (!handlePlayingInput(this)) return;
+    if (this.tutorial.maneuverHold) {
+      this.rebuildTargetLists();
+      this.updatePlayerFlight(dt);
+      this.chaseCam.update(dt, player.object, player.speedFrac, player.boosting);
+      this.updateCameraPresentation(dt);
+      this.updateHud(dt);
       return;
     }
-    if (this.input.wasPressed('Tab')) {
-      this.openLoadout();
-      return;
-    }
-    if (this.input.wasPressed('KeyV')) {
-      this.chaseCam.toggleMode();
-      this.audio.uiClick();
-    }
-    if (this.jumpSpool < 0 && this.input.wasPressed('KeyJ')) this.startJump();
-    if (this.input.wasPressed('KeyF')) this.activateCloak();
-    if (this.input.wasPressed('KeyG')) this.activateEmp();
-    if (this.input.wasPressed('KeyH')) this.useNanobots();
-    if (this.input.wasPressed('KeyR')) {
-      if (this.pendingOffer) this.acceptOffer();
-      else this.hailNearestNeutral();
-    }
-    if (this.input.wasPressed('KeyX') && this.pendingOffer) {
-      this.declineOffer();
-    }
-    // Docking changes state in the R handler. Do not restart engine audio.
-    if (this.state !== 'playing') return;
 
     this.quests.updateCollectProgress(this.inventory.counts);
     for (const completed of this.quests.onPositionUpdate(player.position)) {
@@ -223,8 +215,9 @@ export abstract class GameRuntime extends GameInteractions {
     this.resolveShipCollisions(dt);
     this.updateRepairPads(dt);
 
+    this.tutorial.protectPlayer();
     if (this.updatePlayerDeath(dt)) return;
-    if (this.sectorIndex > 1 && !this.surface) {
+    if (this.sectorIndex > 1 && !this.surface && !this.tutorial.active) {
       this.encounters?.update(dt, player.position);
     }
     this.chaseCam.update(
@@ -567,13 +560,7 @@ export abstract class GameRuntime extends GameInteractions {
       );
     }
     this.postFx.setSize(width, height);
-    this.hangarVisor.resize(
-      width,
-      height,
-      pixelRatio,
-      layoutChanged,
-      ratioChanged,
-    );
+    this.hangarVisor.resize(width, height, layoutChanged);
     if (this.state === 'hangar' && this.hangarVisor.active) {
       if (layoutChanged) this.hangarVisor.mount();
       this.updateMenuIdle(0, performance.now() * 0.001);
@@ -593,8 +580,5 @@ export abstract class GameRuntime extends GameInteractions {
     this.viewportPixelRatio = pixelRatio;
     this.renderer.setPixelRatio(pixelRatio);
     this.postFx.setSize(this.viewportWidth, this.viewportHeight);
-    this.hangarVisor.resize(
-      this.viewportWidth, this.viewportHeight, pixelRatio, false, true,
-    );
   }
 }

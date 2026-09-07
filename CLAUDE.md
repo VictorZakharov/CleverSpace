@@ -30,7 +30,9 @@ Everspace-inspired exploration space-dogfighter. three.js + TypeScript + webpack
    (travel/trade/contracts/devices), and `GameRuntime` (input/frame/render).
    Combat, HUD presentation and environment swapping remain delegated to
    `GameCombat`, `GameHudPresenter` and `GameWorldFlow` through explicit host
-   interfaces. Smaller helpers stay beside them (`CloakVisual`,
+   interfaces. The guided course belongs in `TutorialDirector`: it observes the
+   real systems through a narrow host and must not become a second gameplay loop.
+   Smaller helpers stay beside them (`CloakVisual`,
    `HudProjection`, `InteractionTargeting`, `WorldCollision`,
    `GamePreferences`). Reuse
    `ui/ResourceIcons.ts` for material/consumable symbols;
@@ -47,6 +49,10 @@ WebGL resolution is adaptive and independent of CSS/HUD resolution. Preserve the
 1920×1080 initial pixel budget, 1280×720 floor, hysteresis, and current buffer-pixel
 workload across resize/fullscreen. Manual test stepping intentionally supplies no
 wall-clock sample, so visual baselines do not change with machine speed.
+The desktop Hangar visor is a separate, static UI renderer: do not couple it to
+gameplay adaptive-resolution downshifts, preserve its supersampled direct texture
+sampling, and repaint after every framebuffer resize. HUD plates over WebGL must
+not use `backdrop-filter`; translucent gradients provide stable contrast.
 Static procedural meshes are material-batched for rendering. Authored source parts
 remain on camera-disabled layer 31 for connectivity/debris; authored ship parts carry
 the positive `shipDebrisSource` marker. Visual traversals skip `renderBatchSource`. Repeated fog
@@ -90,6 +96,53 @@ never author a pedestal longer than 12 m.
 Hangar selection clicks are persistence commits. Save ship/difficulty synchronously
 inside the click callbacks; do not defer them to Engage or game entry.
 
+The 30-step tutorial uses a Kestrel/Rookie training expedition without writing those
+choices to preferences. All lessons must remain readable without speech, complete
+through real input/system state, and protect the player before death processing.
+The current lesson's permitted controls arm immediately: deliberate player input
+cancels the unfinished LYRA line and proceeds through observable game state, while
+timers and scripted effects must wait for speech to finish. Enter mirrors a visible
+transition button only on welcome, completion, or optional review/free-roam cards;
+it never bypasses a nav point or another natural gameplay objective.
+Observable results enter a review while HUD/FX remain visible; freeze only when a
+moving world would erase the lesson, and keep repeatable effects live. The next
+prompted gameplay action releases that review and also reaches its real system on
+the following frame. Named transition buttons are reserved for scripted
+demonstrations with no natural action. Debug chevrons must stage the selected lesson's
+real scene and prerequisites. `Input.setControlGate` enforces each lesson's physical
+and virtual permissions; `TouchControls` mirrors them as mobile highlights. Exit
+must set Hangar state before releasing the hold, destroy the tutorial expedition and
+surface cache, then recreate the saved showcase hull. While a desktop tutorial is
+in flight, observation holds retain pointer lock and `TutorialPointer` routes a
+software cursor to LYRA buttons without leaking clicks into weapons. Escape,
+opens a tutorial-aware pause menu; pointer-lock loss and OS focus changes must not.
+Only the card's × or the pause menu's explicit Exit Tutorial action may leave the
+course. The LYRA card auto-expands during tracked speech and auto-collapses after it,
+unless the player has manually chosen a persistent expand/minimize state; the active
+control labels stay visible while minimized.
+
+`NavigationSystem` owns the one shared destination used by normal flight and the
+tutorial. `N` toggles a point on the selected contact or aimed planet; the touch
+deck routes the same action through NAV. Tutorial staging locks manual replacement
+while still projecting its destinations into both the HUD and radar. The seeker
+evasion lesson must launch a real enemy seeker and read the production threat ETA:
+an unaided miss passes immediately, while an imminent intercept may hold time only
+until lateral/vertical movement clears the path, then must release the missile and
+remove the warning without damaging the player.
+
+Cloak training uses a live sentry and harmless real seeker: it must alternate one
+primary/secondary attack every three seconds while the player is exposed, lose pursuit
+and the in-flight lock during a close cloaked
+approach, and resume only after the player reveals the ship. Refill cloak energy only
+for that drill and explicitly teach that normal cloak drains a finite weapon bank.
+Mining training must select an exposed, non-tumbling medium vein with a clear approach,
+stage it at readable range, and retain full flight/aim control rather than frame-locking
+the ship toward a random asteroid.
+Planet training selects one authored base and stages its actual battery, spiral crawler,
+parked defender, H pad, and cache. A live harmless actor from another base must remain
+through local clearance so the production ownership predicate proves it does not lock
+the selected pad. The repair lesson must use the settled 2 HP/s rule and its real effects.
+
 Player seekers have a 1,050 m cumulative traveled-path budget, including curves;
 clamp the final swept segment before collision so a large step cannot over-range
 hit. Immersive flight locks physical `KeyW` where the browser supports Keyboard
@@ -112,8 +165,11 @@ grant it. Entering flight must never request or exit fullscreen: fullscreen is a
 explicit title/pause-screen toggle (or browser F11). App fullscreen may add Keyboard
 Lock for `KeyW`. The first unlocked canvas click retries capture and must never leak
 through as a weapon press.
+Tutorial pointer-loss is the deliberate exception to normal-flight auto-pause.
 
-Smoke tests run against SwiftShader. Stop the game loop before DOM-only layout or
+Smoke tests run against SwiftShader. The full interactive tutorial has its own
+isolated context and must be advanced with real virtual input plus artificial game
+time. Stop the game loop before DOM-only layout or
 preference settling, and use `advanceGameTime` for deterministic simulation; that
 helper intentionally suppresses post-processing during its unobserved intermediate
 frames. Renderer-specific probes must issue their own explicit render. Keep desktop,
@@ -125,7 +181,7 @@ preference, and coarse-pointer sessions in isolated browser contexts.
 npm run test:architecture   # Game/controller and smoke-module size budgets
 npm run typecheck
 npm run test:performance     # 1080p/native-4K/Retina-4K renderer diagnostics
-npm run test:visual          # full local/release sweep; 43 ignored baselines
+npm run test:visual          # full local/release sweep; 46 ignored baselines
 npm run test:smoke           # full loop: peace→contract→merchant→planet→jump→combat→devices
 ```
 

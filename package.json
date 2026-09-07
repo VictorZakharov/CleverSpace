@@ -24,7 +24,8 @@
     "typecheck": "tsc --noEmit",
     "test:visual": "node test/visual/run.mjs",
     "test:visual:update": "node test/visual/run.mjs --update",
-    "test:smoke": "node test/smoke.mjs"
+    "test:smoke": "node test/smoke.mjs",
+    "test:tutorial:randomized": "node test/tutorial-randomized.mjs"
   },
   "dependencies": {
     "postprocessing": "^6.36.4",

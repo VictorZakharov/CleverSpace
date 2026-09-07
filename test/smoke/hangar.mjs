@@ -21,6 +21,37 @@ export async function runHangarSmoke(page) {
   console.log('fullscreen hangar baseline:', JSON.stringify(hangarAlignment));
   await page.setViewportSize({ width: 1280, height: 720 });
   await settleBrowserFrames(page);
+  await page.waitForFunction(() => {
+    const visor = window.game.hangarVisor;
+    return visor.active && visor.panels.panels.every((panel) => panel.material.map);
+  });
+  const renderStability = await page.evaluate(() => {
+    const game = window.game;
+    const visor = game.hangarVisor;
+    const ratioBefore = visor.renderer.getPixelRatio();
+    game.renderResolution.reset(1920, 1080, 2);
+    let adaptiveChanged = false;
+    for (let frame = 0; frame < 80; frame++) {
+      adaptiveChanged = game.renderResolution.sampleFrame(1 / 40) || adaptiveChanged;
+    }
+    if (adaptiveChanged) game.applyRenderResolution();
+    const ratioAfter = visor.renderer.getPixelRatio();
+    game.renderResolution.reset(innerWidth, innerHeight, devicePixelRatio);
+    game.applyRenderResolution();
+    const panels = visor.panels.panels;
+    const hudPanel = document.querySelector('.hud-panel');
+    return {
+      adaptiveChanged,
+      ratioBefore,
+      ratioAfter,
+      minTextureScale: Math.min(...panels.map(
+        (panel) => panel.material.map.image.width / panel.wPx,
+      )),
+      directSampling: panels.every((panel) => !panel.material.map.generateMipmaps),
+      backdropFilter: hudPanel ? getComputedStyle(hudPanel).backdropFilter : 'missing',
+    };
+  });
+  console.log('stable sharp UI rendering:', JSON.stringify(renderStability));
 
   // Structural QA: every hull must be one connected geometry-level body.
   const shipAudit = await page.evaluate(() => window.auditShips());
@@ -273,6 +304,7 @@ export async function runHangarSmoke(page) {
 
   return {
     hangarAlignment,
+    renderStability,
     disconnected,
     missileGate,
     civilianTargeting,

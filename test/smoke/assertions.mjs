@@ -10,14 +10,8 @@ export function collectSmokeFailures(results) {
     capitalSystems,
     runtime,
   } = results;
-  const {
-    hangarAlignment,
-    disconnected,
-    missileGate,
-    civilianTargeting,
-    craftingScroll,
-    veinPrompt,
-  } = hangar;
+  const { hangarAlignment, renderStability, disconnected, missileGate,
+    civilianTargeting, craftingScroll, veinPrompt } = hangar;
   const { peace, quest, trade, planet, planetB, jumpStart, postJump } = world;
   const {
     targetingPolicy,
@@ -65,6 +59,11 @@ export function collectSmokeFailures(results) {
   ) failures.push('hangar preference lifecycle');
   if (disconnected.length > 0) failures.push('ship connectivity');
   if (hangarAlignment.delta > 2) failures.push('hangar fullscreen alignment');
+  if (
+    !renderStability.adaptiveChanged || renderStability.ratioBefore !== renderStability.ratioAfter ||
+    renderStability.ratioBefore < 1.5 || renderStability.minTextureScale < 3 ||
+    !renderStability.directSampling || renderStability.backdropFilter !== 'none'
+  ) failures.push('stable sharp UI rendering');
   if (
     missileGate.crafted ||
     missileGate.bought ||
